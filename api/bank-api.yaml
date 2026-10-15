@@ -282,6 +282,31 @@ paths:
           description: OK
       tags:
       - dispute-controller
+  /transactions/{transactionId}:
+    get:
+      operationId: get
+      parameters:
+      - in: path
+        name: transactionId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+          description: OK
+      tags:
+      - transaction-controller
   /transfers:
     post:
       operationId: create

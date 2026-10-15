@@ -33,7 +33,8 @@ class OwnershipIT extends IntegrationTestBase {
         "/customers/" + CUSTOMER_1 + "/payees",
         "/customers/" + CUSTOMER_1 + "/disputes",
         "/accounts/" + ACCOUNT_1 + "/balance",
-        "/accounts/" + ACCOUNT_1 + "/transactions");
+        "/accounts/" + ACCOUNT_1 + "/transactions",
+        "/transactions/" + DEMO_QUICKMART_TXN);
   }
 
   @ParameterizedTest

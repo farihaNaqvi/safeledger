@@ -30,6 +30,7 @@ class OpenApiIT extends IntegrationTestBase {
             "/cards/{cardId}/freeze",
             "/cards/{cardId}/unfreeze",
             "/accounts/{accountId}/transactions",
+            "/transactions/{transactionId}",
             "/customers/{customerId}/payees",
             "/transfers",
             "/disputes",

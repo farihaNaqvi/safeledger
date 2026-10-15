@@ -133,6 +133,16 @@ public class TransactionController {
         .toList();
   }
 
+  /** A single transaction, only if it was posted to one of the caller's accounts. */
+  @GetMapping("/transactions/{transactionId}")
+  public TransactionResponse get(
+      @PathVariable UUID transactionId, @RequestHeader(Headers.CUSTOMER_ID) UUID caller) {
+    return transactions
+        .findOwned(transactionId, caller)
+        .map(TransactionResponse::from)
+        .orElseThrow(() -> ApiException.notFound("Transaction"));
+  }
+
   private static String escapeLike(String value) {
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
