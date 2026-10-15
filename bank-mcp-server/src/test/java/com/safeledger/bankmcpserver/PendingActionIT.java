@@ -213,6 +213,9 @@ class PendingActionIT extends McpIntegrationTestBase {
     FakeBank.CustomerData data = bank.customer(me);
     FakeBank.CustomerData other = bank.customer(newCustomer());
     McpSyncClient client = connect(me, newSession());
+    // Six write attempts in total; the session limit is five (rejected ones count), so the
+    // transfer checks use a second session.
+    McpSyncClient transfers = connect(me, newSession());
 
     assertThat(
             call(
@@ -244,7 +247,7 @@ class PendingActionIT extends McpIntegrationTestBase {
         .isEqualTo("NOT_DISPUTABLE");
     assertThat(
             call(
-                    client,
+                    transfers,
                     "request_transfer",
                     Map.of(
                         "fromAccountId", data.savings.toString(),
@@ -254,7 +257,7 @@ class PendingActionIT extends McpIntegrationTestBase {
         .isEqualTo("PAYEE_NOT_FOUND");
     assertThat(
             call(
-                    client,
+                    transfers,
                     "request_transfer",
                     Map.of(
                         "fromAccountId", data.current.toString(),
