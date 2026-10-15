@@ -6,14 +6,14 @@ All data in this repo is synthetic. No real card numbers, names or employer data
 
 ## Status
 
-Building phase by phase. Currently: **Phase 2 — mock bank API**.
+Building phase by phase. Currently: **Phase 3 — MCP server and policy layer**.
 
 | Phase | Status |
 |---|---|
 | 0. Manual setup | done outside this repo |
 | 1. Project skeleton | done |
 | 2. Mock bank API | done |
-| 3. MCP server and policy layer | not started |
+| 3. MCP server and policy layer | done |
 | 4. Agent service | not started |
 | 5. Evaluation and injection test suite | not started |
 | 6. Observability and cost | not started |
@@ -33,6 +33,10 @@ Three Spring Boot services plus Postgres, in one Maven multi-module repo:
 ## Quick start (local)
 
 Requires JDK 25 (or the latest LTS your Maven toolchain resolves to), Maven, and Docker Desktop.
+
+First, create `infra/.env` from [`infra/.env.example`](infra/.env.example) and set
+`IDENTITY_HMAC_SECRET` (at least 32 characters, e.g. `openssl rand -base64 48`). The file is
+git-ignored; compose refuses to start without it.
 
 ```
 mvn verify          # build + unit + integration tests, Spotless, JaCoCo
@@ -80,6 +84,52 @@ After changing the API, regenerate the OpenAPI document and commit it:
 ```
 mvn -pl mock-bank-api verify -Dopenapi.update=true
 ```
+
+## MCP server (port 8082)
+
+Spring AI MCP server over Streamable HTTP at `http://localhost:8082/mcp`. It wraps the bank API
+as tools and enforces the policy layer. Design record:
+[`adr/0001-pending-actions-outside-the-model.md`](adr/0001-pending-actions-outside-the-model.md).
+
+| Tier | Tools |
+|---|---|
+| Read | `list_accounts`, `get_balance`, `list_cards`, `search_transactions` (max 50), `list_payees`, `list_disputes` |
+| Write (pending only) | `request_card_freeze`, `request_card_unfreeze`, `request_dispute`, `request_transfer` |
+
+**The model can never complete a write.** Write tools check the request against the bank and
+create a `PENDING` action that expires after 5 minutes. The customer confirms it through
+`POST /internal/actions/{id}/confirm`, an HTTP endpoint that is not an MCP tool. Confirm runs
+exactly once (one conditional `PENDING → CONFIRMED` update) and calls the bank with the action's
+stored idempotency key. `POST /internal/actions/{id}/cancel` and `GET /internal/actions` complete
+the set.
+
+**Identity comes from a signed header, never from tool arguments.** Every request to `/mcp` and
+`/internal/**` needs `X-SafeLedger-Identity`: an HMAC-SHA256 token over customer ID, session ID
+and issue time, valid for 5 minutes. Anything else gets `401` before a tool runs. No tool
+schema has a customer ID.
+
+**Limits** (configurable in `application.yml`): INR 50,000 per transfer and 100,000 per day
+(pending transfers count, so splitting does not help), 5 write requests per session, 2 pending
+actions per customer, 30 tool calls per minute per session.
+
+**Untrusted text.** Merchant, description, payee name and dispute reason are returned inside
+`untrusted_text`, and tool descriptions tell the model that this is data, never instructions. An
+injection detector flags suspicious text (`"flagged": true` plus the rules that matched), logs a
+security event and writes an audit row. The text is still returned so the customer can see it.
+
+**Audit.** Every tool call, rejected identity and action transition (created, confirmed,
+executed, failed, cancelled, expired) is written to `audit_event` in the MCP server's own
+database. Long digit runs in arguments are redacted.
+
+Try it with the MCP Inspector while the stack is up:
+
+```
+TOKEN=$(scripts/mint-identity.sh 11111111-1111-4111-8111-000000000001)
+npx @modelcontextprotocol/inspector --cli http://localhost:8082/mcp --transport http   --header "X-SafeLedger-Identity: $TOKEN" --method tools/list
+```
+
+Or run `npx @modelcontextprotocol/inspector` for the web UI: choose Streamable HTTP, URL
+`http://localhost:8082/mcp`, and add the `X-SafeLedger-Identity` header.
 
 ## Evaluation report
 
