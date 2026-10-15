@@ -74,6 +74,18 @@ class TransactionSearchIT extends IntegrationTestBase {
   }
 
   @Test
+  void getsASingleTransactionOnlyForItsOwner() {
+    Response own = get("/transactions/" + DEMO_QUICKMART_TXN, CUSTOMER_1);
+    Response other = get("/transactions/" + DEMO_QUICKMART_TXN, SeedData.CUSTOMER_2);
+
+    assertThat(own.status()).isEqualTo(200);
+    assertThat(own.<String>json("$.merchant")).isEqualTo("QuickMart");
+    assertThat(own.decimal("$.amount")).isEqualByComparingTo("4999.00");
+    assertThat(other.status()).isEqualTo(404);
+    assertThat(other.<String>json("$.code")).isEqualTo("NOT_FOUND");
+  }
+
+  @Test
   void rejectsInvalidRanges() {
     assertThat(get(PATH + "?from=2026-02-01&to=2026-01-01", CUSTOMER_1).status()).isEqualTo(400);
     assertThat(get(PATH + "?minAmount=10&maxAmount=1", CUSTOMER_1).status()).isEqualTo(400);

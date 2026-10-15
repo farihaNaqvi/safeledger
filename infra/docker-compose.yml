@@ -44,8 +44,17 @@ services:
     build:
       context: ..
       dockerfile: bank-mcp-server/Dockerfile
+    environment:
+      MCP_DB_URL: jdbc:postgresql://postgres:5432/safeledger_mcp
+      MCP_DB_USERNAME: safeledger
+      MCP_DB_PASSWORD: ${POSTGRES_PASSWORD:-safeledger}
+      BANK_API_URL: http://mock-bank-api:8081
+      # Required, no default in the repo. Copy infra/.env.example to infra/.env and set it.
+      IDENTITY_HMAC_SECRET: ${IDENTITY_HMAC_SECRET:?Set IDENTITY_HMAC_SECRET (32+ characters) in infra/.env, see infra/.env.example}
     depends_on:
       postgres:
+        condition: service_healthy
+      mock-bank-api:
         condition: service_healthy
     ports:
       - "8082:8082"
