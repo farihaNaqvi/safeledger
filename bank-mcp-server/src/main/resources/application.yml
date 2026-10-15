@@ -4,6 +4,44 @@ server:
 spring:
   application:
     name: bank-mcp-server
+  datasource:
+    # Local-dev defaults match infra/docker-compose.yml. Override with environment variables.
+    url: ${MCP_DB_URL:jdbc:postgresql://localhost:5432/safeledger_mcp}
+    username: ${MCP_DB_USERNAME:safeledger}
+    password: ${MCP_DB_PASSWORD:safeledger}
+  flyway:
+    locations: classpath:db/migration
+  ai:
+    mcp:
+      server:
+        name: safeledger-bank
+        version: 0.1.0
+        type: SYNC
+        protocol: STREAMABLE
+
+safeledger:
+  bank:
+    base-url: ${BANK_API_URL:http://localhost:8081}
+  identity:
+    # Shared with agent-service. No default on purpose: the server refuses to start without it.
+    hmac-secret: ${IDENTITY_HMAC_SECRET}
+    max-age: 5m
+  actions:
+    ttl: 5m
+    expiry-sweep-interval: 30s
+  limits:
+    max-transfer-per-action: 50000.00
+    max-transfer-per-day: 100000.00
+    max-write-requests-per-session: 5
+    max-pending-actions: 2
+    max-tool-calls-per-minute: 30
+  # Calendar day used for the daily transfer limit.
+  timezone: ${BANK_TIMEZONE:Asia/Kolkata}
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 management:
   endpoints:
