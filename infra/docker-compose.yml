@@ -24,6 +24,10 @@ services:
     build:
       context: ..
       dockerfile: mock-bank-api/Dockerfile
+    environment:
+      BANK_DB_URL: jdbc:postgresql://postgres:5432/safeledger_bank
+      BANK_DB_USERNAME: safeledger
+      BANK_DB_PASSWORD: ${POSTGRES_PASSWORD:-safeledger}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,486 @@
+openapi: 3.1.0
+info:
+  description: Synthetic bank used by the SafeLedger MCP server. Every endpoint requires
+    the X-Customer-Id header and only returns that customer's data; anything else
+    is reported as 404.
+  title: SafeLedger mock bank API
+  version: v1
+servers:
+- description: Local
+  url: http://localhost:8081
+paths:
+  /accounts/{accountId}/balance:
+    get:
+      operationId: balance
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+          description: OK
+      tags:
+      - account-controller
+  /accounts/{accountId}/transactions:
+    get:
+      operationId: search
+      parameters:
+      - in: path
+        name: accountId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: merchant
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: minAmount
+        required: false
+        schema:
+          type: number
+      - in: query
+        name: maxAmount
+        required: false
+        schema:
+          type: number
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TransactionResponse"
+          description: OK
+      tags:
+      - transaction-controller
+  /cards/{cardId}/freeze:
+    post:
+      operationId: freeze
+      parameters:
+      - in: path
+        name: cardId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CardResponse"
+          description: OK
+      tags:
+      - card-controller
+  /cards/{cardId}/unfreeze:
+    post:
+      operationId: unfreeze
+      parameters:
+      - in: path
+        name: cardId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CardResponse"
+          description: OK
+      tags:
+      - card-controller
+  /customers/{customerId}/accounts:
+    get:
+      operationId: list_3
+      parameters:
+      - in: path
+        name: customerId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountResponse"
+          description: OK
+      tags:
+      - account-controller
+  /customers/{customerId}/cards:
+    get:
+      operationId: list_2
+      parameters:
+      - in: path
+        name: customerId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CardResponse"
+          description: OK
+      tags:
+      - card-controller
+  /customers/{customerId}/disputes:
+    get:
+      operationId: list_1
+      parameters:
+      - in: path
+        name: customerId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DisputeResponse"
+          description: OK
+      tags:
+      - dispute-controller
+  /customers/{customerId}/payees:
+    get:
+      operationId: list
+      parameters:
+      - in: path
+        name: customerId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PayeeResponse"
+          description: OK
+      tags:
+      - payee-controller
+  /disputes:
+    post:
+      operationId: create_1
+      parameters:
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDisputeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DisputeResponse"
+          description: OK
+      tags:
+      - dispute-controller
+  /transfers:
+    post:
+      operationId: create
+      parameters:
+      - in: header
+        name: X-Customer-Id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransferRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TransferResponse"
+          description: OK
+      tags:
+      - transfer-controller
+components:
+  schemas:
+    AccountResponse:
+      type: object
+      properties:
+        balance:
+          type: number
+        currency:
+          type: string
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - SAVINGS
+          - CURRENT
+    BalanceResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        asOf:
+          type: string
+          format: date-time
+        balance:
+          type: number
+        currency:
+          type: string
+    CardResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        last4:
+          type: string
+        monthlyLimit:
+          type: number
+        network:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - FROZEN
+          - BLOCKED
+    CreateDisputeRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 0
+        transactionId:
+          type: string
+          format: uuid
+      required:
+      - reason
+      - transactionId
+    CreateTransferRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+        fromAccountId:
+          type: string
+          format: uuid
+        note:
+          type: string
+          maxLength: 200
+          minLength: 0
+        payeeId:
+          type: string
+          format: uuid
+      required:
+      - amount
+      - fromAccountId
+      - payeeId
+    DisputeResponse:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        status:
+          type: string
+          enum:
+          - OPEN
+          - RESOLVED
+          - REJECTED
+        transactionId:
+          type: string
+          format: uuid
+    PayeeResponse:
+      type: object
+      properties:
+        addedAt:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        ifsc:
+          type: string
+        maskedAccount:
+          type: string
+        name:
+          type: string
+    TransactionResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        cardId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        description:
+          type: string
+        direction:
+          type: string
+          enum:
+          - DEBIT
+          - CREDIT
+        id:
+          type: string
+          format: uuid
+        merchant:
+          type: string
+        postedAt:
+          type: string
+          format: date-time
+    TransferResponse:
+      type: object
+      properties:
+        amount:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        currency:
+          type: string
+        fromAccountId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        note:
+          type: string
+        payeeId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - COMPLETED
