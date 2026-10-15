@@ -1,18 +1,22 @@
 package com.safeledger.agentservice;
 
+import java.util.TimeZone;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
- * Customer-facing API and minimal web chat page. Uses Spring AI {@code ChatClient} with the Bedrock
- * Converse model, connects to {@code bank-mcp-server} as an MCP client, applies Bedrock Guardrails,
- * and manages sessions and the confirmation flow. That wiring is added in Phase 4; this application
- * is currently the Phase 1 skeleton.
+ * Customer-facing API and minimal web chat page. A Spring AI chat model (Ollama or Amazon Bedrock
+ * Converse) uses the bank tools on bank-mcp-server through an MCP client with a signed identity per
+ * session, with Bedrock Guardrails on input and output and a confirmation flow the model cannot
+ * reach.
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class AgentServiceApplication {
 
   public static void main(String[] args) {
+    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     SpringApplication.run(AgentServiceApplication.class, args);
   }
 }
