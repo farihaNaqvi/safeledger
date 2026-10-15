@@ -1,0 +1,74 @@
+name: safeledger
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: safeledger
+      # Local-dev default only. Override with POSTGRES_PASSWORD in your shell or an untracked .env file.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-safeledger}
+      # No POSTGRES_DB here on purpose — 01-create-databases.sql creates both
+      # safeledger_bank and safeledger_mcp on first boot.
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U safeledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mock-bank-api:
+    build:
+      context: ..
+      dockerfile: mock-bank-api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  bank-mcp-server:
+    build:
+      context: ..
+      dockerfile: bank-mcp-server/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  agent-service:
+    build:
+      context: ..
+      dockerfile: agent-service/Dockerfile
+    depends_on:
+      mock-bank-api:
+        condition: service_healthy
+      bank-mcp-server:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  pgdata:
