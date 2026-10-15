@@ -43,7 +43,10 @@ class AccountCardPayeeIT extends IntegrationTestBase {
     assertThat(response.<List<String>>json("$[*].last4"))
         .hasSize(2)
         .allMatch(l -> l.matches("\\d{4}"));
-    assertThat(response.body()).doesNotContainPattern("\\d{12,19}");
+    // UUIDs contain long digit runs (e.g. 000000000001), so drop them before looking for card
+    // numbers.
+    String withoutIds = response.body().replaceAll("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", "");
+    assertThat(withoutIds).doesNotContainPattern("\\d{12,19}");
   }
 
   @Test

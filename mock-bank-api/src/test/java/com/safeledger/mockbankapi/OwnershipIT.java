@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.net.http.HttpRequest;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -41,10 +42,19 @@ class OwnershipIT extends IntegrationTestBase {
     assertThat(get(path, CUSTOMER_1).status()).isEqualTo(200);
 
     Response asOther = get(path, CUSTOMER_2);
+    Response missing =
+        get(
+            path.replace(CUSTOMER_1.toString(), UUID.randomUUID().toString())
+                .replace(ACCOUNT_1.toString(), UUID.randomUUID().toString()),
+            CUSTOMER_2);
 
+    // Indistinguishable from a resource that does not exist, and no data beyond the error fields.
+    // 'instance' echoes the request path the caller sent, so it is not compared.
     assertThat(asOther.status()).isEqualTo(404);
     assertThat(asOther.<String>json("$.code")).isEqualTo("NOT_FOUND");
-    assertThat(asOther.body()).doesNotContain(CUSTOMER_1.toString(), ACCOUNT_1.toString());
+    assertThat(asOther.<String>json("$.detail")).isEqualTo(missing.<String>json("$.detail"));
+    assertThat(asOther.<Map<String, Object>>json("$").keySet())
+        .isSubsetOf("type", "title", "status", "detail", "instance", "code");
   }
 
   @ParameterizedTest
