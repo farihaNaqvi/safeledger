@@ -15,8 +15,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Raises a dispute at most once per (customer, idempotency key), and allows at most one open
- * dispute per transaction. Both rules are backed by unique constraints, so concurrent requests
- * cannot get around them.
+ * dispute per transaction. The transaction row is locked so requests for one transaction run one at
+ * a time, and both rules are also backed by unique constraints as a safety net.
  */
 @Service
 public class DisputeService {
@@ -60,14 +60,16 @@ public class DisputeService {
 
   private Result execute(
       UUID customerId, String idempotencyKey, String hash, UUID transactionId, String reason) {
+    // Lock first, then look for the key: a concurrent retry waits here until the first request
+    // commits, and then finds and replays its dispute instead of reporting it as a conflict.
+    BankTransaction transaction =
+        transactions
+            .findOwnedForUpdate(transactionId, customerId)
+            .orElseThrow(() -> ApiException.notFound("Transaction"));
     var existing = disputes.findByCustomerIdAndIdempotencyKey(customerId, idempotencyKey);
     if (existing.isPresent()) {
       return replay(existing.get(), hash);
     }
-    BankTransaction transaction =
-        transactions
-            .findOwned(transactionId, customerId)
-            .orElseThrow(() -> ApiException.notFound("Transaction"));
     if (disputes.existsByTransactionIdAndStatus(transaction.getId(), Dispute.Status.OPEN)) {
       throw alreadyOpen();
     }
