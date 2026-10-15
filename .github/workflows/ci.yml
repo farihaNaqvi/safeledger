@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Spotless check (formatting)
+        run: mvn --batch-mode --no-transfer-progress spotless:check
+
+      - name: Unit tests
+        run: mvn --batch-mode --no-transfer-progress test
+
+      # Testcontainers (Phase 2+) needs a Docker daemon, which the ubuntu-latest
+      # runner provides out of the box.
+      - name: Build, integration tests (Testcontainers), JaCoCo report
+        run: mvn --batch-mode --no-transfer-progress verify
+
+      - name: Upload JaCoCo reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-reports
+          path: "**/target/site/jacoco/"
+          if-no-files-found: ignore
