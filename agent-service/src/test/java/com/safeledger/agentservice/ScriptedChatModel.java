@@ -8,6 +8,8 @@ import java.util.function.Function;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -59,18 +61,27 @@ public class ScriptedChatModel implements ChatModel {
     return ToolCallingChatOptions.builder().model(MODEL).temperature(0.2).build();
   }
 
+  /** Every scripted response reports this many tokens. */
+  static final int INPUT_TOKENS = 100;
+
+  static final int OUTPUT_TOKENS = 10;
+
   static ChatResponse reply(String text) {
-    return new ChatResponse(
-        List.of(new Generation(AssistantMessage.builder().content(text).build())));
+    return response(AssistantMessage.builder().content(text).build());
   }
 
   static ChatResponse toolCall(String tool, String argumentsJson) {
     AssistantMessage.ToolCall call =
         new AssistantMessage.ToolCall("call-" + System.nanoTime(), "function", tool, argumentsJson);
+    return response(AssistantMessage.builder().content("").toolCalls(List.of(call)).build());
+  }
+
+  private static ChatResponse response(AssistantMessage message) {
     return new ChatResponse(
-        List.of(
-            new Generation(
-                AssistantMessage.builder().content("").toolCalls(List.of(call)).build())));
+        List.of(new Generation(message)),
+        ChatResponseMetadata.builder()
+            .usage(new DefaultUsage(INPUT_TOKENS, OUTPUT_TOKENS))
+            .build());
   }
 
   /** The text of the most recent tool result in the prompt. */

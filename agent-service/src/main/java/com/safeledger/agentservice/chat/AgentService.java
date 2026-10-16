@@ -1,11 +1,14 @@
 package com.safeledger.agentservice.chat;
 
+import com.safeledger.agentservice.common.ApiException;
+import com.safeledger.agentservice.common.ApiExceptionHandler;
 import com.safeledger.agentservice.common.BrowserRequestFilter;
 import com.safeledger.agentservice.config.AgentProperties;
 import com.safeledger.agentservice.guardrail.Guardrail;
 import com.safeledger.agentservice.mcp.ActionsClient;
 import com.safeledger.agentservice.mcp.SessionMcpClients;
 import com.safeledger.agentservice.session.CustomerSession;
+import io.modelcontextprotocol.client.McpSyncClient;
 import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,6 +32,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
@@ -42,6 +46,7 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
@@ -62,13 +67,33 @@ public class AgentService {
 
   public record PendingView(UUID id, String summary, Instant expiresAt) {}
 
+  /** Model tokens for the whole turn, summed over every model round. */
+  public record TokenUsage(long inputTokens, long outputTokens) {
+    static final TokenUsage NONE = new TokenUsage(0, 0);
+
+    TokenUsage plus(ChatResponse response) {
+      Usage usage = response.getMetadata() == null ? null : response.getMetadata().getUsage();
+      if (usage == null) {
+        return this;
+      }
+      return new TokenUsage(
+          inputTokens + orZero(usage.getPromptTokens()),
+          outputTokens + orZero(usage.getCompletionTokens()));
+    }
+
+    private static long orZero(Integer value) {
+      return value == null ? 0 : value;
+    }
+  }
+
   public record TurnResult(
       String reply,
       List<PendingView> pendingActions,
       int toolCalls,
       boolean guardrailIntervened,
       String guardrail,
-      String promptVersion) {}
+      String promptVersion,
+      TokenUsage usage) {}
 
   private final ChatModel chatModel;
   private final SessionMcpClients mcpClients;
@@ -127,11 +152,14 @@ public class AgentService {
     } catch (TimeoutException e) {
       future.cancel(true);
       log.warn("Turn timed out after {}", config.turnTimeout());
-      return result(TIMEOUT_REPLY, newPending(session, before), 0, false);
+      return result(TIMEOUT_REPLY, newPending(session, before), 0, false, TokenUsage.NONE);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException(e);
     } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException cause) {
+        throw cause;
+      }
       throw new IllegalStateException("Turn failed", e.getCause());
     }
   }
@@ -144,13 +172,23 @@ public class AgentService {
   private TurnResult run(CustomerSession session, String message, Set<UUID> before) {
     Guardrail.Result input = guardrail.check(Guardrail.Source.INPUT, message);
     if (input.intervened()) {
-      return result(input.text(), List.of(), 0, true);
+      return result(input.text(), List.of(), 0, true, TokenUsage.NONE);
     }
 
+    McpSyncClient client;
+    try {
+      client = mcpClients.forSession(session);
+    } catch (RuntimeException e) {
+      log.warn("MCP server unreachable: {}", e.getMessage());
+      throw new ApiException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          ApiExceptionHandler.BANK_UNAVAILABLE,
+          ApiExceptionHandler.BANK_UNAVAILABLE_DETAIL);
+    }
     List<ToolCallback> tools =
         List.of(
             SyncMcpToolCallbackProvider.builder()
-                .mcpClients(mcpClients.forSession(session))
+                .mcpClients(client)
                 .toolNamePrefixGenerator(McpToolNamePrefixGenerator.noPrefix())
                 .build()
                 .getToolCallbacks());
@@ -171,6 +209,7 @@ public class AgentService {
     Prompt prompt = new Prompt(messages, options);
 
     ChatResponse response = chatModel.call(prompt);
+    TokenUsage usage = TokenUsage.NONE.plus(response);
     int rounds = 1;
     int toolCalls = 0;
     while (response.hasToolCalls() && rounds < config.maxModelRoundsPerTurn()) {
@@ -178,6 +217,7 @@ public class AgentService {
       ToolExecutionResult executed = toolCallingManager.executeToolCalls(prompt, response);
       prompt = new Prompt(executed.conversationHistory(), options);
       response = chatModel.call(prompt);
+      usage = usage.plus(response);
       rounds++;
     }
 
@@ -193,17 +233,24 @@ public class AgentService {
         session.sessionId(),
         List.of(new UserMessage(message), new AssistantMessage(output.text())));
     log.info(
-        "Turn finished: toolCalls={} rounds={} prompt={}",
+        "Turn finished: toolCalls={} rounds={} inputTokens={} outputTokens={} prompt={}",
         toolCalls,
         rounds,
+        usage.inputTokens(),
+        usage.outputTokens(),
         systemPrompt.version());
-    return result(output.text(), newPending(session, before), toolCalls, output.intervened());
+    return result(
+        output.text(), newPending(session, before), toolCalls, output.intervened(), usage);
   }
 
   private TurnResult result(
-      String reply, List<PendingView> pending, int toolCalls, boolean intervened) {
+      String reply,
+      List<PendingView> pending,
+      int toolCalls,
+      boolean intervened,
+      TokenUsage usage) {
     return new TurnResult(
-        reply, pending, toolCalls, intervened, guardrail.name(), systemPrompt.version());
+        reply, pending, toolCalls, intervened, guardrail.name(), systemPrompt.version(), usage);
   }
 
   private Set<UUID> actionIds(CustomerSession session) {

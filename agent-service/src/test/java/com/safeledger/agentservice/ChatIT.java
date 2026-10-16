@@ -31,6 +31,10 @@ class ChatIT extends AgentIntegrationTestBase {
     assertThat(r.<Boolean>json("$.guardrailIntervened")).isFalse();
     assertThat(r.<String>json("$.guardrail")).isEqualTo("test");
     assertThat(r.<String>json("$.promptVersion")).isEqualTo("system-v2");
+    assertThat(r.<Integer>json("$.usage.inputTokens"))
+        .isEqualTo(2 * ScriptedChatModel.INPUT_TOKENS);
+    assertThat(r.<Integer>json("$.usage.outputTokens"))
+        .isEqualTo(2 * ScriptedChatModel.OUTPUT_TOKENS);
     assertThat(mcp.toolCalls).containsExactly("get_balance");
     assertThat(mcp.rejectedRequests).hasValue(0);
     // initialize, tools/list, tools/call and the action lists: all signed, all for Riya, one
@@ -142,6 +146,7 @@ class ChatIT extends AgentIntegrationTestBase {
     assertThat(r.status()).isEqualTo(200);
     assertThat(r.<String>json("$.reply")).isEqualTo(BLOCKED_REPLY);
     assertThat(r.<Boolean>json("$.guardrailIntervened")).isTrue();
+    assertThat(r.<Integer>json("$.usage.inputTokens")).isZero();
     assertThat(model.prompts).isEmpty();
     assertThat(mcp.toolCalls).isEmpty();
   }
