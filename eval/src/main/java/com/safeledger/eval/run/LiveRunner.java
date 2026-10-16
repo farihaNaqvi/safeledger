@@ -68,7 +68,7 @@ public final class LiveRunner {
         } else {
           AgentClient.ActionResult result =
               lastPendingId == null
-                  ? new AgentClient.ActionResult(404, null)
+                  ? new AgentClient.ActionResult(Scorer.NOTHING_PENDING, null)
                   : "confirm".equals(step.action())
                       ? client.confirm(lastPendingId)
                       : client.cancel(lastPendingId);

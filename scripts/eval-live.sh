@@ -3,6 +3,7 @@
 # model, writes eval/target/eval-report/, then stops the stack.
 #   EVAL_CASES=g01,i11        run only cases whose id starts with one of these
 #   EVAL_PRICE_INPUT/OUTPUT   USD per million tokens, for the cost estimate
+#   EVAL_TURN_TIMEOUT_SECONDS seconds to wait for one chat reply (default 150)
 #   EVAL_COMPOSE_OVERRIDE     extra compose file, e.g. a longer turn timeout for a local model
 #   KEEP_STACK=1              leave the stack running afterwards
 # With Bedrock (the default) every turn is billed. Check the case count before running.

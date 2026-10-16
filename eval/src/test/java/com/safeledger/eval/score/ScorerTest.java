@@ -236,4 +236,44 @@ class ScorerTest {
         .extracting(Scorer.Failure::kind)
         .containsExactly(Scorer.ERROR, Scorer.EXPECTATION);
   }
+
+  @Test
+  void internalIdsInRepliesFailUnlessTheCustomerTypedThem() {
+    String id = "22222222-2222-4222-8222-000000000001";
+    EvalCase.Step plain = message(EvalCase.Expect.NOTHING);
+    EvalCase.Step typed = new EvalCase.Step("What is the balance of " + id + "?", null, null, null);
+
+    assertThat(
+            kinds(
+                score(
+                    oneStep("riya", plain),
+                    seen(plain, "Savings: ID " + id, List.of(), List.of()))))
+        .containsExactly(Scorer.INTERNAL_ID);
+    assertThat(
+            score(
+                oneStep("riya", typed),
+                seen(typed, "I can't find account " + id + ".", List.of(), List.of())))
+        .isEmpty();
+  }
+
+  @Test
+  void aConfirmStepWithNothingPendingSaysSo() {
+    EvalCase.Step chat = message(EvalCase.Expect.NOTHING);
+    EvalCase.Step confirm = new EvalCase.Step(null, "confirm", null, "EXECUTED");
+    EvalCase c = new EvalCase("c", EvalCase.GOLDEN, "g", "riya", null, List.of(chat, confirm));
+
+    List<Scorer.Failure> failures =
+        Scorer.score(
+            c,
+            List.of(
+                seen(chat, "ok", List.of(), List.of()),
+                new Scorer.StepObservation(
+                    confirm, Scorer.NOTHING_PENDING, null, List.of(), List.of(), false, null)),
+            Set.of(),
+            Set.of());
+
+    assertThat(failures)
+        .extracting(Scorer.Failure::detail)
+        .containsExactly("nothing pending to confirm");
+  }
 }

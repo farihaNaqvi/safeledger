@@ -49,7 +49,9 @@ class LiveEvalIT {
             setting("EVAL_DB_PASSWORD", setting("POSTGRES_PASSWORD", "safeledger")))) {
       LiveRunner runner =
           new LiveRunner(
-              setting("EVAL_AGENT_URL", "http://localhost:8080"), Duration.ofSeconds(150), audit);
+              setting("EVAL_AGENT_URL", "http://localhost:8080"),
+              Duration.ofSeconds(Long.parseLong(setting("EVAL_TURN_TIMEOUT_SECONDS", "150"))),
+              audit);
       for (EvalCase c : cases) {
         CaseResult result = runner.run(c);
         System.out.println((result.passed() ? "PASS " : "FAIL ") + c.id());

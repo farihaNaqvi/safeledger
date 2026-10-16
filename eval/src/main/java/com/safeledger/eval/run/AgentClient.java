@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -122,6 +123,8 @@ public final class AgentClient {
       HttpResponse<String> response =
           http.send(request.build(), HttpResponse.BodyHandlers.ofString());
       return new Response(response.statusCode(), response.body());
+    } catch (HttpTimeoutException e) {
+      throw new IllegalStateException("no answer from agent-service within " + turnTimeout, e);
     } catch (IOException e) {
       throw new IllegalStateException("agent-service not reachable at " + baseUrl, e);
     } catch (InterruptedException e) {
