@@ -162,7 +162,7 @@ reply reports `"guardrail": "none"`.
 2. Confirm and Cancel are browser endpoints that forward to the MCP server's internal endpoints.
    The model has no tool for them; any tool name it invents gets an `UNKNOWN_TOOL` error.
 3. Each turn is capped at 8 tool calls, 10 model rounds and 90 seconds.
-4. The system prompt is versioned (`prompts/system-v1.md`) and every reply reports its version.
+4. The system prompt is versioned (`prompts/system-vN.md`) and every reply reports its version.
 5. State-changing requests need `X-Requested-With: SafeLedger`, and the session cookie is
    `HttpOnly` and `SameSite=Strict`.
 

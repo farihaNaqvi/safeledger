@@ -30,7 +30,7 @@ class ChatIT extends AgentIntegrationTestBase {
     assertThat(r.<List<?>>json("$.pendingActions")).isEmpty();
     assertThat(r.<Boolean>json("$.guardrailIntervened")).isFalse();
     assertThat(r.<String>json("$.guardrail")).isEqualTo("test");
-    assertThat(r.<String>json("$.promptVersion")).isEqualTo("system-v1");
+    assertThat(r.<String>json("$.promptVersion")).isEqualTo("system-v2");
     assertThat(mcp.toolCalls).containsExactly("get_balance");
     assertThat(mcp.rejectedRequests).hasValue(0);
     // initialize, tools/list, tools/call and the action lists: all signed, all for Riya, one
