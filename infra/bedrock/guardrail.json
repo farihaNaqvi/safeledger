@@ -1,0 +1,55 @@
+{
+  "name": "safeledger-guardrail",
+  "description": "SafeLedger banking assistant: prompt attacks, off-topic requests, card and account numbers",
+  "blockedInputMessaging": "Sorry, I can't help with that. I can help with your own accounts, cards, transactions, payees and disputes.",
+  "blockedOutputsMessaging": "Sorry, I can't help with that. I can help with your own accounts, cards, transactions, payees and disputes.",
+  "contentPolicyConfig": {
+    "filtersConfig": [
+      { "type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE" },
+      { "type": "HATE", "inputStrength": "MEDIUM", "outputStrength": "MEDIUM" },
+      { "type": "INSULTS", "inputStrength": "MEDIUM", "outputStrength": "MEDIUM" },
+      { "type": "SEXUAL", "inputStrength": "MEDIUM", "outputStrength": "MEDIUM" },
+      { "type": "VIOLENCE", "inputStrength": "MEDIUM", "outputStrength": "MEDIUM" },
+      { "type": "MISCONDUCT", "inputStrength": "MEDIUM", "outputStrength": "MEDIUM" }
+    ]
+  },
+  "topicPolicyConfig": {
+    "topicsConfig": [
+      {
+        "name": "Investment advice",
+        "type": "DENY",
+        "definition": "Recommendations or opinions on which stocks, funds, crypto or other investments to buy, sell or hold, or predictions of their returns.",
+        "examples": [
+          "Which mutual fund should I put my savings into?",
+          "Should I buy Bitcoin with my salary?",
+          "Is it a good time to invest in the stock market?"
+        ]
+      },
+      {
+        "name": "Unrelated to banking",
+        "type": "DENY",
+        "definition": "Requests that have nothing to do with the customer's own bank accounts, cards, transactions, payees or disputes, such as coding, essays, trivia or general chat.",
+        "examples": [
+          "Write me a poem about the sea.",
+          "Help me debug my Python code.",
+          "Who won the cricket world cup?"
+        ]
+      }
+    ]
+  },
+  "sensitiveInformationPolicyConfig": {
+    "piiEntitiesConfig": [
+      { "type": "CREDIT_DEBIT_CARD_NUMBER", "action": "ANONYMIZE" },
+      { "type": "CREDIT_DEBIT_CARD_CVV", "action": "BLOCK" },
+      { "type": "US_BANK_ACCOUNT_NUMBER", "action": "ANONYMIZE" }
+    ],
+    "regexesConfig": [
+      {
+        "name": "Bank account number",
+        "description": "9 to 18 digit account numbers",
+        "pattern": "\\b\\d{9,18}\\b",
+        "action": "ANONYMIZE"
+      }
+    ]
+  }
+}

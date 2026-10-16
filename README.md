@@ -143,7 +143,7 @@ message and every reply. This is the intended setup. Set in `infra/.env`:
 |---|---|
 | `BEDROCK_MODEL_ID` | required; a model or inference profile your account can use in `AWS_REGION` |
 | `AWS_REGION` | default `us-east-1` |
-| `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | required while guardrails are on (the default) |
+| `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | required while guardrails are on (the default); definition in [`infra/bedrock/guardrail.json`](infra/bedrock/guardrail.json), least-privilege IAM policy in [`infra/bedrock/iam-policy.json`](infra/bedrock/iam-policy.json) |
 | AWS credentials | default provider chain; for compose, export `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` in the shell |
 
 The service refuses to start if Bedrock is selected without a model ID, or guardrails are on
