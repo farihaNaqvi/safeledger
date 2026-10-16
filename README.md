@@ -14,7 +14,7 @@ Building phase by phase. Currently: **Phase 4 — Agent service**.
 | 1. Project skeleton | done |
 | 2. Mock bank API | done |
 | 3. MCP server and policy layer | done |
-| 4. Agent service | in progress |
+| 4. Agent service | done; Bedrock end-to-end run pending |
 | 5. Evaluation and injection test suite | not started |
 | 6. Observability and cost | not started |
 | 7. AWS deployment with CDK | not started |
