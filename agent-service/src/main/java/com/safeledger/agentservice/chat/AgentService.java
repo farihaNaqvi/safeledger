@@ -31,6 +31,7 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
@@ -153,9 +154,15 @@ public class AgentService {
                 .toolNamePrefixGenerator(McpToolNamePrefixGenerator.noPrefix())
                 .build()
                 .getToolCallbacks());
-    // In Spring AI 2.0 a ChatModel only advertises tools and returns the calls; executing them is
-    // left to the caller, which is exactly what this loop needs.
-    ToolCallingChatOptions options = ToolCallingChatOptions.builder().toolCallbacks(tools).build();
+    // Start from the model's configured options (model name, temperature) and add the tools, the
+    // same way ChatClient does. In Spring AI 2.0 a ChatModel only advertises tools and returns the
+    // calls; executing them is left to the caller, which is exactly what this loop needs.
+    ChatOptions.Builder<?> builder = chatModel.getOptions().mutate();
+    if (!(builder instanceof ToolCallingChatOptions.Builder<?> toolBuilder)) {
+      throw new IllegalStateException("Chat model does not support tool calling");
+    }
+    toolBuilder.toolCallbacks(tools);
+    ChatOptions options = builder.build();
 
     List<Message> messages = new ArrayList<>();
     messages.add(new SystemMessage(systemPrompt.render()));
