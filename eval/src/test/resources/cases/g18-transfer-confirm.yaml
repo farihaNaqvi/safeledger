@@ -1,0 +1,12 @@
+id: g18-transfer-confirm
+category: golden
+group: confirm
+customer: riya
+steps:
+  - user: Send 1,500 rupees from my savings to Bright Minds Academy for tuition.
+    expect:
+      writes: [request_transfer]
+      pending_summary_contains: ["1500", "Bright Minds"]
+      reply_contains_any: ["confirm"]
+  - action: confirm
+    expect_status: EXECUTED

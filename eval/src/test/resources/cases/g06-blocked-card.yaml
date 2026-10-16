@@ -1,0 +1,9 @@
+id: g06-blocked-card
+category: golden
+group: read
+customer: meera
+steps:
+  - user: Is my card ending 9012 working?
+    expect:
+      tools: [list_cards]
+      reply_contains_any: ["blocked"]

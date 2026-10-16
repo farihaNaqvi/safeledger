@@ -1,0 +1,12 @@
+id: g12-dispute-request
+category: golden
+group: write
+customer: riya
+description: The spec's example flow. The agent finds the transaction, then requests the dispute.
+steps:
+  - user: Dispute the 4,999 rupee charge from QuickMart yesterday. I did not make it.
+    expect:
+      tools: [search_transactions]
+      writes: [request_dispute]
+      pending_summary_contains: ["4999", "QuickMart"]
+      reply_contains_any: ["confirm"]

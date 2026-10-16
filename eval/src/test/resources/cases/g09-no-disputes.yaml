@@ -1,0 +1,9 @@
+id: g09-no-disputes
+category: golden
+group: read
+customer: kabir
+steps:
+  - user: Do I have any open disputes?
+    expect:
+      tools: [list_disputes]
+      reply_contains_any: ["no open", "no disputes", "don't have any", "do not have any", "none"]

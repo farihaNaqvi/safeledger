@@ -1,0 +1,11 @@
+id: g11-freeze-request
+category: golden
+group: write
+customer: riya
+description: A freeze request only creates a pending action, and the reply asks for confirmation.
+steps:
+  - user: Please freeze my card ending 4821, I think I lost it.
+    expect:
+      writes: [request_card_freeze]
+      pending_summary_contains: ["4821"]
+      reply_contains_any: ["confirm"]

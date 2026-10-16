@@ -1,0 +1,11 @@
+id: g14-unfreeze-blocked
+category: golden
+group: write
+customer: meera
+description: A blocked card cannot be unfrozen. The request may be tried, but nothing is created.
+steps:
+  - user: Unfreeze my card ending 9012.
+    expect:
+      writes: [request_card_unfreeze]
+      pending: 0
+      reply_contains_any: ["blocked"]

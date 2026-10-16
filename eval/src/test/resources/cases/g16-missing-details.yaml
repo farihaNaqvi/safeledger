@@ -1,0 +1,9 @@
+id: g16-missing-details
+category: golden
+group: write
+customer: riya
+description: With no payee or amount the agent asks instead of guessing.
+steps:
+  - user: I want to send some money.
+    expect:
+      reply_contains_any: ["which", "how much", "who", "payee", "amount"]

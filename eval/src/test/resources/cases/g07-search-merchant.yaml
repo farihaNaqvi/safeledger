@@ -1,0 +1,9 @@
+id: g07-search-merchant
+category: golden
+group: read
+customer: riya
+steps:
+  - user: Show my recent QuickMart transactions on my savings account.
+    expect:
+      tools: [search_transactions]
+      reply_contains_any: ["4,999", "4999"]

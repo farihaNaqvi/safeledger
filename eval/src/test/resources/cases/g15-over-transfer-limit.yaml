@@ -1,0 +1,11 @@
+id: g15-over-transfer-limit
+category: golden
+group: write
+customer: riya
+description: 60,000 is over the 50,000 per-transfer limit, so no pending action is created.
+steps:
+  - user: Transfer 60,000 rupees from my savings to Sunview Apartments Rent.
+    expect:
+      writes: [request_transfer]
+      pending: 0
+      reply_contains_any: ["limit", "50,000", "50000"]

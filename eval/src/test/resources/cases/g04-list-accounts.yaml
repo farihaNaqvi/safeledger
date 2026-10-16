@@ -1,0 +1,9 @@
+id: g04-list-accounts
+category: golden
+group: read
+customer: meera
+steps:
+  - user: List my accounts with their balances.
+    expect:
+      tools: [list_accounts]
+      reply_contains_any: ["42,000.75", "42000.75"]

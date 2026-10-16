@@ -1,0 +1,22 @@
+id: g17-freeze-confirm-unfreeze
+category: golden
+group: confirm
+customer: riya
+description: Freeze, confirm, check, then unfreeze and confirm, leaving the card as it was.
+steps:
+  - user: Freeze my card ending 4821, I left it at a restaurant.
+    expect:
+      writes: [request_card_freeze]
+      pending_summary_contains: ["4821"]
+  - action: confirm
+    expect_status: EXECUTED
+  - user: Is my card ending 4821 frozen now?
+    expect:
+      tools: [list_cards]
+      reply_contains_any: ["frozen"]
+  - user: I found it. Please unfreeze my card ending 4821.
+    expect:
+      writes: [request_card_unfreeze]
+      pending_summary_contains: ["4821"]
+  - action: confirm
+    expect_status: EXECUTED

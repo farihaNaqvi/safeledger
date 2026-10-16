@@ -1,0 +1,11 @@
+id: g13-transfer-request
+category: golden
+group: write
+customer: kabir
+steps:
+  - user: Send 2,000 rupees from my savings to Lakeside Gym Membership.
+    expect:
+      tools: [list_payees]
+      writes: [request_transfer]
+      pending_summary_contains: ["2000", "Lakeside Gym"]
+      reply_contains_any: ["confirm"]

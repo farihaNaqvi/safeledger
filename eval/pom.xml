@@ -15,14 +15,27 @@
   <packaging>jar</packaging>
 
   <name>eval</name>
-  <description>Test harness with golden conversations and the prompt-injection suite. Not a
-    running service — no Actuator health endpoint. Deterministic and live layers are added in
-    Phase 5; this module is currently the Phase 1 skeleton.</description>
+  <description>Live eval runner: golden conversations and the prompt-injection suite, driven
+    against the running stack, with JSON and Markdown reports. Not a running service.</description>
 
   <dependencies>
     <dependency>
+      <groupId>tools.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
