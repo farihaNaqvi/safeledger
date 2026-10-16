@@ -69,6 +69,22 @@ services:
     build:
       context: ..
       dockerfile: agent-service/Dockerfile
+    environment:
+      - MCP_SERVER_URL=http://bank-mcp-server:8082
+      - IDENTITY_HMAC_SECRET=${IDENTITY_HMAC_SECRET:?Set IDENTITY_HMAC_SECRET (32+ characters) in infra/.env, see infra/.env.example}
+      - SAFELEDGER_CHAT_MODEL=${SAFELEDGER_CHAT_MODEL:-bedrock-converse}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID:-}
+      - BEDROCK_GUARDRAIL_ENABLED=${BEDROCK_GUARDRAIL_ENABLED:-true}
+      - BEDROCK_GUARDRAIL_ID=${BEDROCK_GUARDRAIL_ID:-}
+      - BEDROCK_GUARDRAIL_VERSION=${BEDROCK_GUARDRAIL_VERSION:-DRAFT}
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mock-bank-api:
         condition: service_healthy

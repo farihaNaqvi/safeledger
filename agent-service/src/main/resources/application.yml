@@ -13,8 +13,8 @@ spring:
     name: agent-service
   ai:
     model:
-      # Which chat model to use: "ollama" (local, free) or "bedrock-converse" (Amazon Bedrock).
-      chat: ${SAFELEDGER_CHAT_MODEL:ollama}
+      # bedrock-converse or ollama (local only)
+      chat: ${SAFELEDGER_CHAT_MODEL:bedrock-converse}
       embedding: none
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
@@ -45,7 +45,7 @@ safeledger:
     timezone: ${BANK_TIMEZONE:Asia/Kolkata}
   guardrail:
     # Amazon Bedrock Guardrails on every customer message and every reply.
-    enabled: ${BEDROCK_GUARDRAIL_ENABLED:false}
+    enabled: ${BEDROCK_GUARDRAIL_ENABLED:true}
     id: ${BEDROCK_GUARDRAIL_ID:}
     version: ${BEDROCK_GUARDRAIL_VERSION:DRAFT}
     region: ${AWS_REGION:us-east-1}

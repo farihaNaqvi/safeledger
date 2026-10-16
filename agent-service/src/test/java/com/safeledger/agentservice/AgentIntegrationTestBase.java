@@ -33,6 +33,7 @@ import org.springframework.test.context.DynamicPropertySource;
     properties = {
       "safeledger.identity.hmac-secret=" + AgentIntegrationTestBase.SECRET,
       "spring.ai.model.chat=none",
+      "safeledger.guardrail.enabled=false",
       // The MCP clients' open streams to the in-app fake server would hold a graceful shutdown
       // for its full 30 s timeout.
       "server.shutdown=immediate"

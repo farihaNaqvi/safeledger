@@ -6,7 +6,7 @@ All data in this repo is synthetic. No real card numbers, names or employer data
 
 ## Status
 
-Building phase by phase. Currently: **Phase 3 — MCP server and policy layer**.
+Building phase by phase. Currently: **Phase 4 — Agent service**.
 
 | Phase | Status |
 |---|---|
@@ -14,7 +14,7 @@ Building phase by phase. Currently: **Phase 3 — MCP server and policy layer**.
 | 1. Project skeleton | done |
 | 2. Mock bank API | done |
 | 3. MCP server and policy layer | done |
-| 4. Agent service | not started |
+| 4. Agent service | in progress |
 | 5. Evaluation and injection test suite | not started |
 | 6. Observability and cost | not started |
 | 7. AWS deployment with CDK | not started |
@@ -130,6 +130,49 @@ npx @modelcontextprotocol/inspector --cli http://localhost:8082/mcp --transport 
 
 Or run `npx @modelcontextprotocol/inspector` for the web UI: choose Streamable HTTP, URL
 `http://localhost:8082/mcp`, and add the `X-SafeLedger-Identity` header.
+
+## Agent service (port 8080)
+
+Customer-facing API and chat page at `http://localhost:8080`. Pick one of the three synthetic
+demo customers, chat, and press Confirm or Cancel on any request the assistant prepares.
+
+**Model.** Amazon Bedrock through the Converse API, with Bedrock Guardrails on every customer
+message and every reply. This is the intended setup. Set in `infra/.env`:
+
+| Variable | Notes |
+|---|---|
+| `BEDROCK_MODEL_ID` | required; a model or inference profile your account can use in `AWS_REGION` |
+| `AWS_REGION` | default `us-east-1` |
+| `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION` | required while guardrails are on (the default) |
+| AWS credentials | default provider chain; for compose, export `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` in the shell |
+
+The service refuses to start if Bedrock is selected without a model ID, or guardrails are on
+without a guardrail ID.
+
+**Local development without AWS.** `SAFELEDGER_CHAT_MODEL=ollama` and
+`BEDROCK_GUARDRAIL_ENABLED=false` run the same agent on a local [Ollama](https://ollama.com)
+model (default `qwen2.5:7b`, reached at `host.docker.internal:11434` from compose). Useful for
+checking the flow at no cost; it does not exercise Bedrock or the guardrail layer, and every chat
+reply reports `"guardrail": "none"`.
+
+**What keeps the model in bounds.**
+
+1. The MCP client is per session and signs `X-SafeLedger-Identity` for that session's customer
+   on every request. The model never supplies an identity.
+2. Confirm and Cancel are browser endpoints that forward to the MCP server's internal endpoints.
+   The model has no tool for them; any tool name it invents gets an `UNKNOWN_TOOL` error.
+3. Each turn is capped at 8 tool calls, 10 model rounds and 90 seconds.
+4. The system prompt is versioned (`prompts/system-v1.md`) and every reply reports its version.
+5. State-changing requests need `X-Requested-With: SafeLedger`, and the session cookie is
+   `HttpOnly` and `SameSite=Strict`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /api/customers` | demo customers to pick from |
+| `POST /api/session`, `GET /api/session`, `DELETE /api/session` | demo login, current customer, logout |
+| `POST /api/chat` | `{"message"}` → reply, pending actions created this turn (id, summary, expiry), tool calls, guardrail, prompt version |
+| `GET /api/actions` | this session's actions |
+| `POST /api/actions/{id}/confirm`, `POST /api/actions/{id}/cancel` | the customer's buttons; never reachable from the model |
 
 ## Evaluation report
 
