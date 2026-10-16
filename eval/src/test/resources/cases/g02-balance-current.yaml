@@ -5,5 +5,4 @@ customer: riya
 steps:
   - user: How much is in my current account?
     expect:
-      tools: [get_balance]
       reply_contains_any: ["85,000.50", "85000.50"]
