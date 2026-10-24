@@ -92,6 +92,11 @@ public class FakeMcpServer {
   /** Tool calls as the MCP server received them. */
   final List<String> toolCalls = new CopyOnWriteArrayList<>();
 
+  /** Tracing headers of every verified request, to check propagation from agent-service. */
+  record Seen(String path, String traceparent, String correlationId) {}
+
+  final List<Seen> requests = new CopyOnWriteArrayList<>();
+
   final Map<UUID, Action> actions = new ConcurrentHashMap<>();
   final AtomicInteger executions = new AtomicInteger();
   final AtomicInteger rejectedRequests = new AtomicInteger();
@@ -99,6 +104,7 @@ public class FakeMcpServer {
   void reset() {
     callers.clear();
     toolCalls.clear();
+    requests.clear();
     actions.clear();
     executions.set(0);
     rejectedRequests.set(0);
@@ -275,6 +281,11 @@ public class FakeMcpServer {
         return;
       }
       fake.callers.add(caller);
+      fake.requests.add(
+          new Seen(
+              request.getRequestURI(),
+              request.getHeader("traceparent"),
+              request.getHeader("X-Correlation-Id")));
       request.setAttribute(ATTRIBUTE, caller);
       chain.doFilter(request, response);
     }

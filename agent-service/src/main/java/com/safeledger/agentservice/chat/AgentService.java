@@ -8,6 +8,8 @@ import com.safeledger.agentservice.guardrail.Guardrail;
 import com.safeledger.agentservice.mcp.ActionsClient;
 import com.safeledger.agentservice.mcp.SessionMcpClients;
 import com.safeledger.agentservice.session.CustomerSession;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import io.modelcontextprotocol.client.McpSyncClient;
 import jakarta.annotation.PreDestroy;
 import java.time.Instant;
@@ -104,6 +106,9 @@ public class AgentService {
   private final AgentProperties.Agent config;
   private final ChatMemory memory;
   private final ToolCallingManager toolCallingManager;
+  private final ChatMetrics metrics;
+  private final ObservationRegistry observations;
+  private final AgentProperties.Cost cost;
   private final ExecutorService turns = Executors.newVirtualThreadPerTaskExecutor();
 
   public AgentService(
@@ -112,8 +117,13 @@ public class AgentService {
       ActionsClient actions,
       Guardrail guardrail,
       SystemPrompt systemPrompt,
-      AgentProperties properties) {
+      AgentProperties properties,
+      ChatMetrics metrics,
+      ObservationRegistry observations) {
     this.chatModel = chatModel;
+    this.metrics = metrics;
+    this.observations = observations;
+    this.cost = properties.cost();
     this.mcpClients = mcpClients;
     this.actions = actions;
     this.guardrail = guardrail;
@@ -130,21 +140,45 @@ public class AgentService {
             .onLimitExceeded(ToolCallLimitBehavior.RETURN_ERROR_RESPONSE)
             .toolCallbackResolver(UnknownTool::new)
             .resolutionFallbackEnabled(true)
+            .observationRegistry(observations)
             .build();
   }
 
   public TurnResult turn(CustomerSession session, String message) {
     Set<UUID> before = actionIds(session);
     String correlationId = MDC.get(BrowserRequestFilter.MDC_KEY);
+    // The turn runs on its own thread, so the request's span is passed on explicitly; model calls,
+    // tool calls and MCP requests become its children.
+    Observation parent = observations.getCurrentObservation();
     Future<TurnResult> future =
         turns.submit(
             () -> {
               if (correlationId != null) {
                 MDC.put(BrowserRequestFilter.MDC_KEY, correlationId);
               }
-              try {
-                return run(session, message, before);
+              Observation observation =
+                  Observation.createNotStarted("safeledger.chat.turn", observations)
+                      .contextualName("chat turn")
+                      .parentObservation(parent)
+                      .lowCardinalityKeyValue("prompt", systemPrompt.version())
+                      .start();
+              try (Observation.Scope scope = observation.openScope()) {
+                TurnResult result = run(session, message, before);
+                observation
+                    .highCardinalityKeyValue(
+                        "gen_ai.usage.input_tokens", String.valueOf(result.usage().inputTokens()))
+                    .highCardinalityKeyValue(
+                        "gen_ai.usage.output_tokens", String.valueOf(result.usage().outputTokens()))
+                    .highCardinalityKeyValue(
+                        "safeledger.cost_usd",
+                        cost.usd(result.usage().inputTokens(), result.usage().outputTokens())
+                            .toPlainString());
+                return result;
+              } catch (RuntimeException e) {
+                observation.error(e);
+                throw e;
               } finally {
+                observation.stop();
                 MDC.remove(BrowserRequestFilter.MDC_KEY);
               }
             });
@@ -172,6 +206,7 @@ public class AgentService {
 
   private TurnResult run(CustomerSession session, String message, Set<UUID> before) {
     Guardrail.Result input = guardrail.check(Guardrail.Source.INPUT, message);
+    metrics.guardrail(Guardrail.Source.INPUT, input);
     if (input.blocked()) {
       return result(input.text(), List.of(), 0, true, TokenUsage.NONE);
     }
@@ -237,6 +272,8 @@ public class AgentService {
       log.warn("Reply cut off at the model's max-tokens limit");
     }
     Guardrail.Result output = guardrail.check(Guardrail.Source.OUTPUT, reply);
+    metrics.guardrail(Guardrail.Source.OUTPUT, output);
+    boolean firstTurn = memory.get(session.sessionId()).isEmpty();
     List<PendingView> pending = newPending(session, before);
     List<Message> remembered = new ArrayList<>();
     remembered.add(new UserMessage(customerText));
@@ -245,6 +282,7 @@ public class AgentService {
     }
     remembered.add(new AssistantMessage(output.text()));
     memory.add(session.sessionId(), remembered);
+    metrics.turn(chatModel.getOptions().getModel(), usage, firstTurn);
     log.info(
         "Turn finished: toolCalls={} rounds={} inputTokens={} outputTokens={} prompt={}",
         toolCalls,
