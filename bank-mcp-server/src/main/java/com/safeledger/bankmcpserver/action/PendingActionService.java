@@ -8,6 +8,7 @@ import com.safeledger.bankmcpserver.config.SafeLedgerProperties;
 import com.safeledger.bankmcpserver.identity.CallerIdentity;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,6 +50,23 @@ public class PendingActionService {
     this.bank = bank;
     this.audit = audit;
     this.properties = properties;
+  }
+
+  /** Free-text arguments; a request that differs only in these is the same request. */
+  private static final List<String> FREE_TEXT = List.of("reason", "note");
+
+  /** True if the same request (same tool and target, any wording) is already waiting. */
+  public boolean hasOpenDuplicate(
+      CallerIdentity caller, String toolName, Map<String, Object> arguments, Instant now) {
+    Map<String, Object> target = withoutFreeText(arguments);
+    return repository.findOpen(caller.customerId(), toolName, now).stream()
+        .anyMatch(a -> withoutFreeText(a.arguments()).equals(target));
+  }
+
+  private static Map<String, Object> withoutFreeText(Map<String, Object> arguments) {
+    Map<String, Object> copy = new HashMap<>(arguments);
+    FREE_TEXT.forEach(copy::remove);
+    return copy;
   }
 
   public PendingAction create(

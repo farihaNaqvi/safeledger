@@ -281,6 +281,12 @@ public class WriteTools {
       BigDecimal amount,
       List<String> freeText) {
     Instant now = Instant.now();
+    if (actions.hasOpenDuplicate(caller, tool, stored, now)) {
+      throw new ToolError(
+          "ALREADY_PENDING",
+          "This request is already waiting for the customer to press Confirm in the app. Do not"
+              + " create it again; nothing has been done yet.");
+    }
     limits.checkPendingActions(caller, now);
     List<String> flags =
         freeText.stream().flatMap(text -> detector.scan(text).stream()).distinct().toList();

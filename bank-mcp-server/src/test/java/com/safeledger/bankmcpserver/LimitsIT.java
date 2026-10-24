@@ -56,6 +56,38 @@ class LimitsIT extends McpIntegrationTestBase {
   }
 
   @Test
+  void anIdenticalRequestWhileOneIsPendingIsRejected() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    McpSyncClient sessionA = connect(me, session);
+    McpSyncClient sessionB = connect(me, newSession());
+    String card = data.activeCard.toString();
+
+    ToolResult first =
+        call(sessionA, "request_card_freeze", Map.of("cardId", card, "reason", "Lost"));
+    ToolResult reworded =
+        call(sessionA, "request_card_freeze", Map.of("cardId", card, "reason", "I lost it"));
+    ToolResult otherSession =
+        call(sessionB, "request_card_freeze", Map.of("cardId", card, "reason", "Lost"));
+    String transfer = transfer(sessionA, data, "10.00").json("$.actionId");
+    ToolResult sameTransfer = transfer(sessionA, data, "10.00");
+
+    assertThat(first.isError()).isFalse();
+    assertThat(reworded.<String>json("$.error")).isEqualTo("ALREADY_PENDING");
+    assertThat(otherSession.<String>json("$.error")).isEqualTo("ALREADY_PENDING");
+    assertThat(sameTransfer.<String>json("$.error")).isEqualTo("ALREADY_PENDING");
+    assertThat(actionStatus(transfer)).isEqualTo("PENDING");
+
+    // Once the first one is cancelled, asking again is allowed.
+    cancel(me, session, first.json("$.actionId"));
+    assertThat(
+            call(sessionB, "request_card_freeze", Map.of("cardId", card, "reason", "Lost"))
+                .isError())
+        .isFalse();
+  }
+
+  @Test
   void maxWriteRequestsPerSessionIncludingRejectedOnes() {
     UUID me = newCustomer();
     String session = newSession();
