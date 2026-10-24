@@ -6,7 +6,7 @@ All data in this repo is synthetic. No real card numbers, names or employer data
 
 ## Status
 
-Building phase by phase. Currently: **Phase 6 — Observability and cost**.
+Building phase by phase. Currently: **Phase 7 — AWS deployment with CDK**.
 
 | Phase | Status |
 |---|---|
@@ -16,8 +16,8 @@ Building phase by phase. Currently: **Phase 6 — Observability and cost**.
 | 3. MCP server and policy layer | done |
 | 4. Agent service | done (live check on Claude Haiku 5.5 + Bedrock Guardrails) |
 | 5. Evaluation and injection test suite | done: injection 15/15, golden 18/20 |
-| 6. Observability and cost | done locally; CloudWatch dashboard comes with Phase 7 |
-| 7. AWS deployment with CDK | not started |
+| 6. Observability and cost | done; CloudWatch dashboard in the Phase 7 CDK stack |
+| 7. AWS deployment with CDK | done: deployed, Phase 4 scenarios 24/24 on AWS, destroyed |
 | 8. Documentation and demo | not started |
 
 ## Architecture
@@ -264,6 +264,50 @@ single trace across all three services.
 Tags never contain customer, session or account IDs; request metrics use URI templates. Prompt and
 tool content are not recorded in traces. `/actuator/prometheus` is open on each service for local
 use; in AWS it is reachable only inside the VPC.
+
+## AWS deployment (CDK)
+
+`infra/cdk` (Java CDK) deploys five stacks to `us-east-1`:
+
+| Stack | What it creates |
+|---|---|
+| `SafeLedger-Network` | VPC over two AZs, **no NAT gateway**; isolated subnets for the bank API, MCP server and databases; VPC endpoints for ECR, CloudWatch Logs, Secrets Manager and Bedrock |
+| `SafeLedger-Data` | one `db.t4g.micro` Postgres per service (separate credentials), private, encrypted, deleted on destroy without a snapshot |
+| `SafeLedger-Guardrail` | the Bedrock guardrail from [`infra/bedrock/guardrail.json`](infra/bedrock/guardrail.json) |
+| `SafeLedger-Services` | ECS Fargate for the three services, Cloud Map names inside the VPC, and a public load balancer in front of agent-service only |
+| `SafeLedger-Observability` | CloudWatch dashboard (cost per session, injection flags, guardrail, 5xx, latency, CPU and memory) and alarms on 5xx rate and injection flag spikes |
+
+**Security.**
+- Only agent-service's task role can call Bedrock, and only for this guardrail (or the configured model in `bedrock-converse` mode). The MCP server and the bank API get no Bedrock access.
+- The bank API is reachable only from the MCP server, which is reachable only from agent-service, which is reachable only from the load balancer.
+- The load balancer accepts only the CIDR you pass at deploy time, and returns 404 for `/actuator/*`.
+- Secrets (DB credentials, the HMAC secret, the Claude API key) come from Secrets Manager, and the services require TLS to the databases.
+- The demo is plain HTTP (no domain or certificate), so restrict it to your own IP.
+
+**Cost.** About **$0.19 per hour** while deployed (Fargate, the load balancer, two small databases and five endpoints in one AZ), plus model use. Deploy, check, and destroy the same day.
+
+**Model.** By default agent-service calls the Claude API (`chatModel=anthropic`), with the key in Secrets Manager. With Bedrock model access, deploy with `-c chatModel=bedrock-converse -c bedrockModelId=us.anthropic.claude-haiku-5-5`.
+
+**Deploy from your machine.** Requires Docker, Java 25, Node.js 22 and an admin session (`aws login --profile safeledger-admin`).
+
+```
+scripts/aws-put-anthropic-key.sh                                # copies the key from infra/.env, never printed
+ALLOWED_CIDR="$(curl -s https://checkip.amazonaws.com)/32" scripts/aws-deploy.sh
+# open the DemoUrl output, run the checks, then:
+scripts/aws-destroy.sh                                          # removes the stacks, lists anything left
+```
+
+**Verified on AWS** (2026-10-25): deployed from a freshly bootstrapped account with `scripts/aws-deploy.sh`, Phase 4 scenarios 24/24 through the load balancer, about 1.75 hours for about $0.36, then destroyed with no stacks, databases, snapshots, endpoints or load balancers left.
+
+**What stays after destroy.**
+- No RDS snapshots are taken.
+- CDK's bootstrap stack (`CDKToolkit`: an S3 bucket and an ECR repository holding the built images) is kept for the next deploy and costs a few cents a month. To remove it, empty the bucket and the repository, then delete the `CDKToolkit` stack.
+- The `safeledger/anthropic-api-key` secret is yours to delete: `aws secretsmanager delete-secret --secret-id safeledger/anthropic-api-key --force-delete-without-recovery`.
+
+**Deploy from GitHub.**
+1. Create the GitHub OIDC provider and a role using [`infra/cdk/iam/github-deploy-trust.json`](infra/cdk/iam/github-deploy-trust.json) (the `main` branch only) and [`infra/cdk/iam/github-deploy-policy.json`](infra/cdk/iam/github-deploy-policy.json) (it may only assume CDK's bootstrap roles).
+2. Set the `AWS_DEPLOY_ROLE_ARN` repository variable.
+3. Run **Actions → Deploy to AWS** with `deploy`, and later `destroy`. The workflow is manual only.
 
 ## Out of scope
 

@@ -1,4 +1,4 @@
-.PHONY: up up-observability down test build logs ps clean
+.PHONY: up up-observability down test build logs ps clean aws-deploy destroy
 
 # Local dev loop. Equivalent to the scripts under scripts/ for environments
 # without `make` (e.g. plain Windows without Git Bash / WSL make installed).
@@ -27,3 +27,10 @@ ps:
 clean:
 	docker compose -f infra/docker-compose.yml down -v
 	mvn clean
+
+# AWS (billed while deployed). ALLOWED_CIDR=203.0.113.7/32 make aws-deploy
+aws-deploy:
+	scripts/aws-deploy.sh
+
+destroy:
+	scripts/aws-destroy.sh
