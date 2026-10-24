@@ -283,13 +283,17 @@ public class AgentService {
     remembered.add(new AssistantMessage(output.text()));
     memory.add(session.sessionId(), remembered);
     metrics.turn(chatModel.getOptions().getModel(), usage, firstTurn);
-    log.info(
-        "Turn finished: toolCalls={} rounds={} inputTokens={} outputTokens={} prompt={}",
-        toolCalls,
-        rounds,
-        usage.inputTokens(),
-        usage.outputTokens(),
-        systemPrompt.version());
+    // Fields for CloudWatch metric filters in AWS (cost per session without a metrics agent).
+    log.atInfo()
+        .addKeyValue("costUsd", cost.usd(usage.inputTokens(), usage.outputTokens()).doubleValue())
+        .addKeyValue("firstTurn", firstTurn)
+        .log(
+            "Turn finished: toolCalls={} rounds={} inputTokens={} outputTokens={} prompt={}",
+            toolCalls,
+            rounds,
+            usage.inputTokens(),
+            usage.outputTokens(),
+            systemPrompt.version());
     return result(
         output.text(), pending, toolCalls, input.intervened() || output.intervened(), usage);
   }

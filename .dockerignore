@@ -1,0 +1,9 @@
+# Allow-list: the images need only the POMs, the Dockerfiles and the sources. Keeps infra/.env
+# and other local secrets out of every build context.
+*
+!pom.xml
+!*/pom.xml
+!*/Dockerfile
+!mock-bank-api/src
+!bank-mcp-server/src
+!agent-service/src
