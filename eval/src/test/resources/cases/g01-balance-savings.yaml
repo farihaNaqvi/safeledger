@@ -1,0 +1,8 @@
+id: g01-balance-savings
+category: golden
+group: read
+customer: riya
+steps:
+  - user: What is the balance of my savings account?
+    expect:
+      reply_contains_any: ["250,000", "2,50,000", "250000"]

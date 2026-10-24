@@ -13,7 +13,7 @@ spring:
     name: agent-service
   ai:
     model:
-      # bedrock-converse or ollama (local only)
+      # bedrock-converse, anthropic, or ollama (local only)
       chat: ${SAFELEDGER_CHAT_MODEL:bedrock-converse}
       embedding: none
     ollama:
@@ -28,8 +28,12 @@ spring:
       converse:
         chat:
           model: ${BEDROCK_MODEL_ID:}
-          temperature: 0.2
-          max-tokens: 1024
+          max-tokens: 4096
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      chat:
+        model: ${ANTHROPIC_MODEL:claude-haiku-5-5}
+        max-tokens: 4096
 
 safeledger:
   mcp-url: ${MCP_SERVER_URL:http://localhost:8082}
@@ -37,11 +41,11 @@ safeledger:
     # Shared with bank-mcp-server. No default on purpose: the service refuses to start without it.
     hmac-secret: ${IDENTITY_HMAC_SECRET}
   agent:
-    system-prompt: classpath:prompts/system-v2.md
+    system-prompt: classpath:prompts/system-v3.md
     max-tool-calls-per-turn: 8
     max-model-rounds-per-turn: 10
     turn-timeout: 90s
-    memory-messages: 20
+    memory-messages: 30
     timezone: ${BANK_TIMEZONE:Asia/Kolkata}
   guardrail:
     # Amazon Bedrock Guardrails on every customer message and every reply.

@@ -1,0 +1,16 @@
+id: g19-transfer-cancel
+category: golden
+group: confirm
+customer: kabir
+description: After Cancel, the agent must not say the transfer went through.
+steps:
+  - user: Transfer 3,000 rupees to Kabir Example - Other Bank.
+    expect:
+      writes: [request_transfer]
+      pending_summary_contains: ["3000"]
+  - action: cancel
+    expect_status: CANCELLED
+  - user: Did that transfer go through?
+    expect:
+      reply_contains_any: ["cancel", "not", "didn't", "did not"]
+      reply_not_contains: ["the transfer was sent", "transfer has been sent", "went through successfully", "yes, it went through"]

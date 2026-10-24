@@ -4,8 +4,10 @@ import com.safeledger.agentservice.config.AgentProperties;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Component;
 /** The versioned system prompt (resources/prompts/system-vN.md) with today's date filled in. */
 @Component
 public class SystemPrompt {
+
+  private static final DateTimeFormatter NOW = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
   private final String template;
   private final String version;
@@ -31,7 +35,11 @@ public class SystemPrompt {
   }
 
   public String render() {
-    return template.replace("{{today}}", LocalDate.now(zone).toString());
+    ZonedDateTime now = ZonedDateTime.now(zone);
+    return template
+        .replace("{{today}}", now.toLocalDate().toString())
+        .replace("{{now}}", now.format(NOW) + " (" + zone.getId() + ")")
+        .replace("{{now_utc}}", now.withZoneSameInstant(ZoneOffset.UTC).format(NOW) + " UTC");
   }
 
   public String version() {

@@ -1,11 +1,14 @@
 package com.safeledger.agentservice.chat;
 
+import com.safeledger.agentservice.common.ApiException;
+import com.safeledger.agentservice.common.ApiExceptionHandler;
 import com.safeledger.agentservice.common.BrowserRequestFilter;
 import com.safeledger.agentservice.config.AgentProperties;
 import com.safeledger.agentservice.guardrail.Guardrail;
 import com.safeledger.agentservice.mcp.ActionsClient;
 import com.safeledger.agentservice.mcp.SessionMcpClients;
 import com.safeledger.agentservice.session.CustomerSession;
+import io.modelcontextprotocol.client.McpSyncClient;
 import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,8 +32,10 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
@@ -42,6 +47,7 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
@@ -62,13 +68,33 @@ public class AgentService {
 
   public record PendingView(UUID id, String summary, Instant expiresAt) {}
 
+  /** Model tokens for the whole turn, summed over every model round. */
+  public record TokenUsage(long inputTokens, long outputTokens) {
+    static final TokenUsage NONE = new TokenUsage(0, 0);
+
+    TokenUsage plus(ChatResponse response) {
+      Usage usage = response.getMetadata() == null ? null : response.getMetadata().getUsage();
+      if (usage == null) {
+        return this;
+      }
+      return new TokenUsage(
+          inputTokens + orZero(usage.getPromptTokens()),
+          outputTokens + orZero(usage.getCompletionTokens()));
+    }
+
+    private static long orZero(Integer value) {
+      return value == null ? 0 : value;
+    }
+  }
+
   public record TurnResult(
       String reply,
       List<PendingView> pendingActions,
       int toolCalls,
       boolean guardrailIntervened,
       String guardrail,
-      String promptVersion) {}
+      String promptVersion,
+      TokenUsage usage) {}
 
   private final ChatModel chatModel;
   private final SessionMcpClients mcpClients;
@@ -127,11 +153,14 @@ public class AgentService {
     } catch (TimeoutException e) {
       future.cancel(true);
       log.warn("Turn timed out after {}", config.turnTimeout());
-      return result(TIMEOUT_REPLY, newPending(session, before), 0, false);
+      return result(TIMEOUT_REPLY, newPending(session, before), 0, false, TokenUsage.NONE);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException(e);
     } catch (ExecutionException e) {
+      if (e.getCause() instanceof RuntimeException cause) {
+        throw cause;
+      }
       throw new IllegalStateException("Turn failed", e.getCause());
     }
   }
@@ -143,14 +172,26 @@ public class AgentService {
 
   private TurnResult run(CustomerSession session, String message, Set<UUID> before) {
     Guardrail.Result input = guardrail.check(Guardrail.Source.INPUT, message);
-    if (input.intervened()) {
-      return result(input.text(), List.of(), 0, true);
+    if (input.blocked()) {
+      return result(input.text(), List.of(), 0, true, TokenUsage.NONE);
     }
+    // Masked when the customer typed a card or account number: the model only sees the mask.
+    String customerText = input.text();
 
+    McpSyncClient client;
+    try {
+      client = mcpClients.forSession(session);
+    } catch (RuntimeException e) {
+      log.warn("MCP server unreachable: {}", e.getMessage());
+      throw new ApiException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          ApiExceptionHandler.BANK_UNAVAILABLE,
+          ApiExceptionHandler.BANK_UNAVAILABLE_DETAIL);
+    }
     List<ToolCallback> tools =
         List.of(
             SyncMcpToolCallbackProvider.builder()
-                .mcpClients(mcpClients.forSession(session))
+                .mcpClients(client)
                 .toolNamePrefixGenerator(McpToolNamePrefixGenerator.noPrefix())
                 .build()
                 .getToolCallbacks());
@@ -167,43 +208,101 @@ public class AgentService {
     List<Message> messages = new ArrayList<>();
     messages.add(new SystemMessage(systemPrompt.render()));
     messages.addAll(memory.get(session.sessionId()));
-    messages.add(new UserMessage(message));
+    messages.add(new UserMessage(customerText));
     Prompt prompt = new Prompt(messages, options);
 
     ChatResponse response = chatModel.call(prompt);
+    TokenUsage usage = TokenUsage.NONE.plus(response);
     int rounds = 1;
     int toolCalls = 0;
+    List<String> toolNames = new ArrayList<>();
     while (response.hasToolCalls() && rounds < config.maxModelRoundsPerTurn()) {
-      toolCalls += response.getResult().getOutput().getToolCalls().size();
+      answer(response).getToolCalls().forEach(call -> toolNames.add(call.name()));
+      toolCalls += answer(response).getToolCalls().size();
       ToolExecutionResult executed = toolCallingManager.executeToolCalls(prompt, response);
       prompt = new Prompt(executed.conversationHistory(), options);
       response = chatModel.call(prompt);
+      usage = usage.plus(response);
       rounds++;
     }
 
     String reply =
-        response.hasToolCalls() || response.getResult() == null
+        response.hasToolCalls() || answer(response) == null
             ? UNFINISHED_REPLY
-            : response.getResult().getOutput().getText();
+            : answer(response).getText();
     if (reply == null || reply.isBlank()) {
       reply = UNFINISHED_REPLY;
     }
+    if (cutOff(response)) {
+      log.warn("Reply cut off at the model's max-tokens limit");
+    }
     Guardrail.Result output = guardrail.check(Guardrail.Source.OUTPUT, reply);
-    memory.add(
-        session.sessionId(),
-        List.of(new UserMessage(message), new AssistantMessage(output.text())));
+    List<PendingView> pending = newPending(session, before);
+    List<Message> remembered = new ArrayList<>();
+    remembered.add(new UserMessage(customerText));
+    if (!toolNames.isEmpty()) {
+      remembered.add(new AssistantMessage("[App] " + toolNote(toolNames, pending)));
+    }
+    remembered.add(new AssistantMessage(output.text()));
+    memory.add(session.sessionId(), remembered);
     log.info(
-        "Turn finished: toolCalls={} rounds={} prompt={}",
+        "Turn finished: toolCalls={} rounds={} inputTokens={} outputTokens={} prompt={}",
         toolCalls,
         rounds,
+        usage.inputTokens(),
+        usage.outputTokens(),
         systemPrompt.version());
-    return result(output.text(), newPending(session, before), toolCalls, output.intervened());
+    return result(
+        output.text(), pending, toolCalls, input.intervened() || output.intervened(), usage);
+  }
+
+  /**
+   * What the tools did this turn, kept in memory so later turns do not have to trust (or doubt) the
+   * model's own earlier wording.
+   */
+  static String toolNote(List<String> toolNames, List<PendingView> pending) {
+    StringBuilder note =
+        new StringBuilder("Tools used this turn: ")
+            .append(String.join(", ", toolNames.stream().distinct().toList()))
+            .append('.');
+    if (pending.isEmpty()) {
+      note.append(" No new request was created.");
+    }
+    pending.forEach(
+        p ->
+            note.append(" Request created, waiting for the customer to press Confirm: ")
+                .append(p.summary()));
+    return note.toString();
+  }
+
+  /** Anthropic and Bedrock report "max_tokens", Ollama "length". */
+  static boolean cutOff(ChatResponse response) {
+    List<Generation> results = response.getResults();
+    if (results.isEmpty() || results.getLast().getMetadata() == null) {
+      return false;
+    }
+    String reason = results.getLast().getMetadata().getFinishReason();
+    return reason != null
+        && (reason.equalsIgnoreCase("max_tokens") || reason.equalsIgnoreCase("length"));
+  }
+
+  /**
+   * The generation holding the reply text and tool calls. Anthropic puts each thinking block in its
+   * own generation ahead of it; the other providers return just one.
+   */
+  private static AssistantMessage answer(ChatResponse response) {
+    List<Generation> results = response.getResults();
+    return results.isEmpty() ? null : results.getLast().getOutput();
   }
 
   private TurnResult result(
-      String reply, List<PendingView> pending, int toolCalls, boolean intervened) {
+      String reply,
+      List<PendingView> pending,
+      int toolCalls,
+      boolean intervened,
+      TokenUsage usage) {
     return new TurnResult(
-        reply, pending, toolCalls, intervened, guardrail.name(), systemPrompt.version());
+        reply, pending, toolCalls, intervened, guardrail.name(), systemPrompt.version(), usage);
   }
 
   private Set<UUID> actionIds(CustomerSession session) {

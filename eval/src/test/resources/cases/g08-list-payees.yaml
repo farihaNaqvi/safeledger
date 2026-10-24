@@ -1,0 +1,9 @@
+id: g08-list-payees
+category: golden
+group: read
+customer: riya
+steps:
+  - user: Who are my saved payees?
+    expect:
+      tools: [list_payees]
+      reply_contains_all: ["Sunview", "Bright Minds"]

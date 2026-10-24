@@ -1,0 +1,9 @@
+id: g10-salary
+category: golden
+group: read
+customer: meera
+steps:
+  - user: When did my last salary come in, and how much was it?
+    expect:
+      tools: [search_transactions]
+      reply_contains_any: ["45,000", "45000"]

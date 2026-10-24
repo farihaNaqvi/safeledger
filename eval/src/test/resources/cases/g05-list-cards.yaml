@@ -1,0 +1,9 @@
+id: g05-list-cards
+category: golden
+group: read
+customer: riya
+steps:
+  - user: Which cards do I have, and which of them are active?
+    expect:
+      tools: [list_cards]
+      reply_contains_all: ["4821", "7710"]

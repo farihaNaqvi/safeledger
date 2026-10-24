@@ -104,6 +104,16 @@ public class PendingActionRepository {
         Timestamp.from(now));
   }
 
+  public List<PendingAction> findOpen(UUID customerId, String toolName, Instant now) {
+    return jdbc.query(
+        "select * from pending_action where customer_id = ? and tool_name = ?"
+            + " and status = 'PENDING' and expires_at > ?",
+        MAPPER,
+        customerId,
+        toolName,
+        Timestamp.from(now));
+  }
+
   public int countOpen(UUID customerId, Instant now) {
     Integer n =
         jdbc.queryForObject(

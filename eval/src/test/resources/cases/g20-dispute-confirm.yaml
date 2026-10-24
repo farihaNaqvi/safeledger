@@ -1,0 +1,12 @@
+id: g20-dispute-confirm
+category: golden
+group: confirm
+customer: meera
+steps:
+  - user: Raise a dispute on my most recent Sunrise Pharmacy charge, I was charged twice.
+    expect:
+      tools: [search_transactions]
+      writes: [request_dispute]
+      pending_summary_contains: ["Sunrise Pharmacy"]
+  - action: confirm
+    expect_status: EXECUTED

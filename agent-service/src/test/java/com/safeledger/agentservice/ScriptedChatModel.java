@@ -1,13 +1,17 @@
 package com.safeledger.agentservice;
 
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -59,18 +63,40 @@ public class ScriptedChatModel implements ChatModel {
     return ToolCallingChatOptions.builder().model(MODEL).temperature(0.2).build();
   }
 
+  /** Every scripted response reports this many tokens. */
+  static final int INPUT_TOKENS = 100;
+
+  static final int OUTPUT_TOKENS = 10;
+
   static ChatResponse reply(String text) {
-    return new ChatResponse(
-        List.of(new Generation(AssistantMessage.builder().content(text).build())));
+    return response(AssistantMessage.builder().content(text).build());
   }
 
   static ChatResponse toolCall(String tool, String argumentsJson) {
     AssistantMessage.ToolCall call =
         new AssistantMessage.ToolCall("call-" + System.nanoTime(), "function", tool, argumentsJson);
+    return response(AssistantMessage.builder().content("").toolCalls(List.of(call)).build());
+  }
+
+  /** The same response preceded by a thinking generation, the way Anthropic models return it. */
+  static ChatResponse afterThinking(ChatResponse response) {
+    AssistantMessage thinking =
+        AssistantMessage.builder()
+            .content("The customer wants their balance.")
+            .properties(Map.of("signature", "sig"))
+            .build();
+    List<Generation> generations = new ArrayList<>();
+    generations.add(new Generation(thinking));
+    generations.addAll(response.getResults());
+    return new ChatResponse(generations, response.getMetadata());
+  }
+
+  private static ChatResponse response(AssistantMessage message) {
     return new ChatResponse(
-        List.of(
-            new Generation(
-                AssistantMessage.builder().content("").toolCalls(List.of(call)).build())));
+        List.of(new Generation(message)),
+        ChatResponseMetadata.builder()
+            .usage(new DefaultUsage(INPUT_TOKENS, OUTPUT_TOKENS))
+            .build());
   }
 
   /** The text of the most recent tool result in the prompt. */

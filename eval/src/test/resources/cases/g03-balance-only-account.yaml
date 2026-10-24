@@ -1,0 +1,8 @@
+id: g03-balance-only-account
+category: golden
+group: read
+customer: kabir
+steps:
+  - user: How much money do I have?
+    expect:
+      reply_contains_any: ["120,000", "1,20,000", "120000"]
