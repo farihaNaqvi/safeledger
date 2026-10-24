@@ -3,10 +3,19 @@
 const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'SafeLedger' };
 const $ = (id) => document.getElementById(id);
 
-async function api(method, path, body) {
-  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+async function api(method, path, body, extra) {
+  const res = await fetch(path, {
+    method, headers: { ...headers, ...extra }, body: body ? JSON.stringify(body) : undefined });
   const data = res.status === 204 ? null : await res.json().catch(() => null);
-  return { ok: res.ok, status: res.status, data };
+  return { ok: res.ok, status: res.status, data, traceId: res.headers.get('X-Trace-Id') };
+}
+
+// W3C trace context, so Confirm and Cancel join the trace of the turn that created the action.
+function sameTrace(traceId) {
+  if (!traceId) return {};
+  const span = [...crypto.getRandomValues(new Uint8Array(8))]
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+  return { traceparent: `00-${traceId}-${span}-01` };
 }
 
 function add(cls, text) {
@@ -18,7 +27,7 @@ function add(cls, text) {
   return div;
 }
 
-function addAction(action) {
+function addAction(action, traceId) {
   const box = document.createElement('div');
   box.className = 'action';
   const text = document.createElement('div');
@@ -42,14 +51,14 @@ function addAction(action) {
   };
   confirm.onclick = async () => {
     confirm.disabled = cancel.disabled = true;
-    const r = await api('POST', `/api/actions/${action.id}/confirm`);
+    const r = await api('POST', `/api/actions/${action.id}/confirm`, null, sameTrace(traceId));
     if (r.ok && r.data.status === 'EXECUTED') finish('done', 'Done: ' + action.summary);
     else if (r.ok) finish('failed', 'The bank did not accept this: ' + (r.data.result?.detail || r.data.status));
     else finish('failed', 'Not done: ' + (r.data?.detail || 'this request can no longer be confirmed'));
   };
   cancel.onclick = async () => {
     confirm.disabled = cancel.disabled = true;
-    const r = await api('POST', `/api/actions/${action.id}/cancel`);
+    const r = await api('POST', `/api/actions/${action.id}/cancel`, null, sameTrace(traceId));
     finish('failed', r.ok ? 'Cancelled: ' + action.summary : 'Could not cancel');
   };
 }
@@ -88,7 +97,7 @@ $('composer').onsubmit = async (e) => {
   thinking.remove();
   if (!r.ok) return add('app', r.data?.detail || 'Something went wrong.');
   add('bot', r.data.reply);
-  for (const a of r.data.pendingActions) addAction(a);
+  for (const a of r.data.pendingActions) addAction(a, r.traceId);
 };
 
 $('logout').onclick = async () => {

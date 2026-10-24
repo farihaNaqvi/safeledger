@@ -2,7 +2,9 @@ package com.safeledger.bankmcpserver.audit;
 
 import com.safeledger.bankmcpserver.common.Json;
 import com.safeledger.bankmcpserver.identity.CallerIdentity;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -36,9 +38,11 @@ public class AuditLog {
   }
 
   private final JdbcTemplate jdbc;
+  private final MeterRegistry meters;
 
-  public AuditLog(JdbcTemplate jdbc) {
+  public AuditLog(JdbcTemplate jdbc, MeterRegistry meters) {
     this.jdbc = jdbc;
+    this.meters = meters;
   }
 
   public void toolCall(
@@ -54,13 +58,29 @@ public class AuditLog {
   public void action(
       EventType type, CallerIdentity caller, String tool, UUID actionId, String outcome) {
     insert(type, caller, tool, actionId, null, outcome, null, null);
+    countAction(type, tool);
   }
 
   public void actionExpired(UUID actionId) {
     insert(EventType.ACTION_EXPIRED, null, null, actionId, null, "EXPIRED", null, null);
+    countAction(EventType.ACTION_EXPIRED, null);
+  }
+
+  private void countAction(EventType type, String tool) {
+    meters
+        .counter(
+            "safeledger.actions",
+            "event",
+            type.name().substring("ACTION_".length()).toLowerCase(Locale.ROOT),
+            "tool",
+            tool == null ? "unknown" : tool)
+        .increment();
   }
 
   public void injectionFlagged(CallerIdentity caller, String tool, String field, String rule) {
+    for (String one : rule.split(",")) {
+      meters.counter("safeledger.injection.flags", "tool", tool, "rule", one.trim()).increment();
+    }
     insert(
         EventType.INJECTION_FLAGGED,
         caller,
@@ -73,6 +93,7 @@ public class AuditLog {
   }
 
   public void identityRejected(String reason, String path) {
+    meters.counter("safeledger.identity.rejected").increment();
     insert(
         EventType.IDENTITY_REJECTED, null, null, null, null, "REJECTED", reason + " " + path, null);
   }

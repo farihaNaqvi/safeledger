@@ -1,4 +1,4 @@
-.PHONY: up down test build logs ps clean
+.PHONY: up up-observability down test build logs ps clean
 
 # Local dev loop. Equivalent to the scripts under scripts/ for environments
 # without `make` (e.g. plain Windows without Git Bash / WSL make installed).
@@ -6,8 +6,11 @@
 up:
 	docker compose -f infra/docker-compose.yml up --build -d
 
+up-observability:
+	docker compose -f infra/docker-compose.yml -f infra/docker-compose.observability.yml up --build -d
+
 down:
-	docker compose -f infra/docker-compose.yml down
+	docker compose -f infra/docker-compose.yml -f infra/docker-compose.observability.yml down
 
 test:
 	mvn verify

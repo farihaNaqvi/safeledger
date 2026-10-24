@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.safeledger.bankmcpserver.action.PendingAction;
 import com.safeledger.bankmcpserver.action.PendingActionService;
+import com.safeledger.bankmcpserver.audit.AuditLog;
 import com.safeledger.bankmcpserver.bank.BankApiException;
 import com.safeledger.bankmcpserver.bank.BankClient;
 import com.safeledger.bankmcpserver.bank.BankModels;
@@ -61,6 +62,7 @@ public class WriteTools {
   private final PendingActionService actions;
   private final LimitService limits;
   private final InjectionDetector detector;
+  private final AuditLog audit;
   private final SafeLedgerProperties properties;
 
   public WriteTools(
@@ -69,12 +71,14 @@ public class WriteTools {
       PendingActionService actions,
       LimitService limits,
       InjectionDetector detector,
+      AuditLog audit,
       SafeLedgerProperties properties) {
     this.runner = runner;
     this.bank = bank;
     this.actions = actions;
     this.limits = limits;
     this.detector = detector;
+    this.audit = audit;
     this.properties = properties;
   }
 
@@ -291,6 +295,9 @@ public class WriteTools {
     List<String> flags =
         freeText.stream().flatMap(text -> detector.scan(text).stream()).distinct().toList();
     PendingAction action = actions.create(caller, tool, stored, summary, amount, now);
+    if (!flags.isEmpty()) {
+      audit.injectionFlagged(caller, tool, "free text@" + action.id(), String.join(",", flags));
+    }
     return new PendingView(
         action.id(),
         "PENDING_CUSTOMER_CONFIRMATION",

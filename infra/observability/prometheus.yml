@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: safeledger
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["agent-service:8080", "bank-mcp-server:8082", "mock-bank-api:8081"]

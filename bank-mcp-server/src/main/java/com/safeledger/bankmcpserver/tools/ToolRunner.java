@@ -7,6 +7,8 @@ import com.safeledger.bankmcpserver.common.Json;
 import com.safeledger.bankmcpserver.identity.CallerIdentity;
 import com.safeledger.bankmcpserver.identity.McpTransportConfig;
 import com.safeledger.bankmcpserver.policy.LimitService;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import java.time.Instant;
@@ -29,10 +31,12 @@ public class ToolRunner {
 
   private final LimitService limits;
   private final AuditLog audit;
+  private final ObservationRegistry observations;
 
-  public ToolRunner(LimitService limits, AuditLog audit) {
+  public ToolRunner(LimitService limits, AuditLog audit, ObservationRegistry observations) {
     this.limits = limits;
     this.audit = audit;
+    this.observations = observations;
   }
 
   public CallToolResult read(
@@ -66,6 +70,31 @@ public class ToolRunner {
     if (correlationId != null) {
       MDC.put(CorrelationIdFilter.MDC_KEY, correlationId.toString());
     }
+    // One span and one timer per tool call: safeledger.tool{tool, outcome}.
+    Observation observation =
+        Observation.createNotStarted("safeledger.tool", observations)
+            .contextualName("tool " + tool)
+            .lowCardinalityKeyValue("tool", tool)
+            .lowCardinalityKeyValue("outcome", "OK");
+    if (context.get(McpTransportConfig.OBSERVATION_KEY) instanceof Observation parent) {
+      observation.parentObservation(parent);
+    }
+    observation.start();
+    try (Observation.Scope scope = observation.openScope()) {
+      return execute(tool, caller, arguments, write, body, observation);
+    } finally {
+      observation.stop();
+      MDC.remove(CorrelationIdFilter.MDC_KEY);
+    }
+  }
+
+  private CallToolResult execute(
+      String tool,
+      CallerIdentity caller,
+      Map<String, Object> arguments,
+      boolean write,
+      Function<CallerIdentity, Object> body,
+      Observation observation) {
     long started = System.nanoTime();
     try {
       limits.checkRate(caller, Instant.now());
@@ -76,19 +105,21 @@ public class ToolRunner {
       audit.toolCall(caller, tool, arguments, "OK", null, elapsedMs(started));
       return CallToolResult.builder().addTextContent(Json.write(result)).build();
     } catch (ToolError e) {
+      observation.lowCardinalityKeyValue("outcome", e.code());
       audit.toolCall(caller, tool, arguments, e.code(), e.getMessage(), elapsedMs(started));
       return error(e.code(), e.getMessage());
     } catch (BankApiException e) {
       ToolError mapped = fromBank(e);
+      observation.lowCardinalityKeyValue("outcome", mapped.code());
       audit.toolCall(caller, tool, arguments, mapped.code(), e.getMessage(), elapsedMs(started));
       return error(mapped.code(), mapped.getMessage());
     } catch (RuntimeException e) {
       log.error("Tool failed: tool={}", tool, e);
+      observation.lowCardinalityKeyValue("outcome", "INTERNAL_ERROR");
+      observation.error(e);
       audit.toolCall(caller, tool, arguments, "INTERNAL_ERROR", null, elapsedMs(started));
       return error(
           "INTERNAL_ERROR", "The bank service could not complete this request. Try again later.");
-    } finally {
-      MDC.remove(CorrelationIdFilter.MDC_KEY);
     }
   }
 
