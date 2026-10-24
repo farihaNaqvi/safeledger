@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SafeLedger Assistant</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>SafeLedger</h1>
+    <p class="tag">Demo bank assistant. All data is synthetic.</p>
+    <div id="who" hidden><span id="who-name"></span> <button id="logout" type="button">Log out</button></div>
+  </header>
+
+  <main>
+    <section id="login">
+      <h2>Log in as a demo customer</h2>
+      <div id="customers"></div>
+    </section>
+
+    <section id="chat" hidden>
+      <div id="messages" aria-live="polite"></div>
+      <form id="composer">
+        <input id="message" autocomplete="off" maxlength="2000"
+               placeholder="Ask about your balance, cards or transactions">
+        <button type="submit">Send</button>
+      </form>
+      <p class="hint">Changes such as transfers, disputes and card freezes only happen when you press
+        Confirm. Typing "confirm" in the chat does nothing.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

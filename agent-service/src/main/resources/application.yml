@@ -1,9 +1,67 @@
 server:
   port: 8080
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: SAFELEDGER_SESSION
+        http-only: true
+        same-site: strict
 
 spring:
   application:
     name: agent-service
+  ai:
+    model:
+      # bedrock-converse or ollama (local only)
+      chat: ${SAFELEDGER_CHAT_MODEL:bedrock-converse}
+      embedding: none
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        model: ${OLLAMA_MODEL:qwen2.5:7b}
+        temperature: 0.2
+    bedrock:
+      aws:
+        # Credentials come from the AWS default provider chain (profile, SSO, env, task role).
+        region: ${AWS_REGION:us-east-1}
+      converse:
+        chat:
+          model: ${BEDROCK_MODEL_ID:}
+          temperature: 0.2
+          max-tokens: 1024
+
+safeledger:
+  mcp-url: ${MCP_SERVER_URL:http://localhost:8082}
+  identity:
+    # Shared with bank-mcp-server. No default on purpose: the service refuses to start without it.
+    hmac-secret: ${IDENTITY_HMAC_SECRET}
+  agent:
+    system-prompt: classpath:prompts/system-v2.md
+    max-tool-calls-per-turn: 8
+    max-model-rounds-per-turn: 10
+    turn-timeout: 90s
+    memory-messages: 20
+    timezone: ${BANK_TIMEZONE:Asia/Kolkata}
+  guardrail:
+    # Amazon Bedrock Guardrails on every customer message and every reply.
+    enabled: ${BEDROCK_GUARDRAIL_ENABLED:true}
+    id: ${BEDROCK_GUARDRAIL_ID:}
+    version: ${BEDROCK_GUARDRAIL_VERSION:DRAFT}
+    region: ${AWS_REGION:us-east-1}
+  # Demo login: the seeded synthetic customers a visitor can pick from.
+  customers:
+    - id: 11111111-1111-4111-8111-000000000001
+      name: Riya Sample
+    - id: 11111111-1111-4111-8111-000000000002
+      name: Kabir Example
+    - id: 11111111-1111-4111-8111-000000000003
+      name: Meera Testcase
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 management:
   endpoints:
