@@ -31,6 +31,25 @@ class ChatModelCheckTest {
   }
 
   @Test
+  void anthropicWithoutAnApiKeyFails() {
+    MockEnvironment env = new MockEnvironment().withProperty(ChatModelCheck.PROVIDER, "anthropic");
+
+    assertThatThrownBy(() -> new ChatModelCheck(env))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("ANTHROPIC_API_KEY");
+  }
+
+  @Test
+  void anthropicWithAnApiKeyStarts() {
+    MockEnvironment env =
+        new MockEnvironment()
+            .withProperty(ChatModelCheck.PROVIDER, "anthropic")
+            .withProperty(ChatModelCheck.ANTHROPIC_KEY, "test-key");
+
+    assertThatCode(() -> new ChatModelCheck(env)).doesNotThrowAnyException();
+  }
+
+  @Test
   void ollamaDoesNotNeedABedrockModelId() {
     MockEnvironment env = new MockEnvironment().withProperty(ChatModelCheck.PROVIDER, "ollama");
 

@@ -149,6 +149,12 @@ message and every reply. This is the intended setup. Set in `infra/.env`:
 The service refuses to start if Bedrock is selected without a model ID, or guardrails are on
 without a guardrail ID.
 
+**Claude API instead of a Bedrock model.** New AWS accounts can have every Bedrock model quota at
+0, which blocks model calls while the guardrail API still works. In that case set
+`SAFELEDGER_CHAT_MODEL=anthropic`, `ANTHROPIC_API_KEY` and optionally `ANTHROPIC_MODEL` (default
+`claude-haiku-5-5`). The model is then called through the Claude API, and Bedrock Guardrails still
+check every message and reply. This project's own test runs use this setup for that reason.
+
 **Local development without AWS.** `SAFELEDGER_CHAT_MODEL=ollama` and
 `BEDROCK_GUARDRAIL_ENABLED=false` run the same agent on a local [Ollama](https://ollama.com)
 model (default `qwen2.5:7b`, reached at `host.docker.internal:11434` from compose). Useful for
