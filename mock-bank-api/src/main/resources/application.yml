@@ -32,7 +32,28 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: when-authorized
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      otlp:
+        # On with infra/docker-compose.observability.yml, which also runs Tempo.
+        enabled: ${TRACING_EXPORT:false}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        # Prometheus scrapes /actuator/prometheus instead.
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false

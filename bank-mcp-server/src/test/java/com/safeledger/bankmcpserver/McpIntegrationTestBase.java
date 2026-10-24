@@ -91,13 +91,19 @@ abstract class McpIntegrationTestBase {
   }
 
   McpSyncClient connect(UUID customerId, String sessionId) {
+    return connect(customerId, sessionId, Map.of());
+  }
+
+  McpSyncClient connect(UUID customerId, String sessionId, Map<String, String> extraHeaders) {
     String token = token(customerId, sessionId);
     HttpClientStreamableHttpTransport transport =
         HttpClientStreamableHttpTransport.builder("http://localhost:" + port)
             .endpoint("/mcp")
             .httpRequestCustomizer(
-                (builder, method, uri, body, context) ->
-                    builder.header(IdentityToken.HEADER, token))
+                (builder, method, uri, body, context) -> {
+                  builder.header(IdentityToken.HEADER, token);
+                  extraHeaders.forEach(builder::header);
+                })
             .build();
     McpSyncClient client = McpClient.sync(transport).requestTimeout(Duration.ofSeconds(30)).build();
     clients.add(client);
