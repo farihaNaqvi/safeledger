@@ -17,7 +17,7 @@ Building phase by phase. Currently: **Phase 7 — AWS deployment with CDK**.
 | 4. Agent service | done (live check on Claude Haiku 5.5 + Bedrock Guardrails) |
 | 5. Evaluation and injection test suite | done: injection 15/15, golden 18/20 |
 | 6. Observability and cost | done; CloudWatch dashboard in the Phase 7 CDK stack |
-| 7. AWS deployment with CDK | code and template tests done; live deploy pending |
+| 7. AWS deployment with CDK | done: deployed, Phase 4 scenarios 24/24 on AWS, destroyed |
 | 8. Documentation and demo | not started |
 
 ## Architecture
@@ -296,6 +296,8 @@ ALLOWED_CIDR="$(curl -s https://checkip.amazonaws.com)/32" scripts/aws-deploy.sh
 # open the DemoUrl output, run the checks, then:
 scripts/aws-destroy.sh                                          # removes the stacks, lists anything left
 ```
+
+**Verified on AWS** (2026-10-25): deployed from a freshly bootstrapped account with `scripts/aws-deploy.sh`, Phase 4 scenarios 24/24 through the load balancer, about 1.75 hours for about $0.36, then destroyed with no stacks, databases, snapshots, endpoints or load balancers left.
 
 **What stays after destroy.**
 - No RDS snapshots are taken.
