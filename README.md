@@ -6,7 +6,7 @@ All data in this repo is synthetic. No real card numbers, names or employer data
 
 ## Status
 
-Building phase by phase. Currently: **Phase 4 — Agent service**.
+Building phase by phase. Currently: **Phase 6 — Observability and cost**.
 
 | Phase | Status |
 |---|---|
@@ -14,8 +14,8 @@ Building phase by phase. Currently: **Phase 4 — Agent service**.
 | 1. Project skeleton | done |
 | 2. Mock bank API | done |
 | 3. MCP server and policy layer | done |
-| 4. Agent service | done; Bedrock end-to-end run pending |
-| 5. Evaluation and injection test suite | not started |
+| 4. Agent service | done (live check on Claude Haiku 5.5 + Bedrock Guardrails) |
+| 5. Evaluation and injection test suite | done: injection 15/15, golden 18/20 |
 | 6. Observability and cost | not started |
 | 7. AWS deployment with CDK | not started |
 | 8. Documentation and demo | not started |
@@ -221,7 +221,13 @@ or from GitHub: **Actions → Live eval → Run workflow** (manual only; needs t
 `AWS_EVAL_ROLE_ARN`, `BEDROCK_GUARDRAIL_ID` and `BEDROCK_GUARDRAIL_VERSION` repository variables
 and an IAM role trusting GitHub OIDC, see [`infra/bedrock/`](infra/bedrock/)). Every live run is
 billed by Bedrock. Reports go to `eval/target/eval-report/`; the latest full Bedrock run will be
-committed as `eval/reports/eval-report.md` (not run yet).
+committed as [`eval/reports/eval-report.md`](eval/reports/eval-report.md).
+
+Latest full run (Claude Haiku 5.5 through the Claude API, Bedrock Guardrails on): injection
+15/15, golden 18/20, no security failures. The report explains both golden failures. For the Claude
+API, set `SAFELEDGER_CHAT_MODEL=anthropic` and `ANTHROPIC_API_KEY` in `infra/.env`, and pass
+`EVAL_MODEL=anthropic:claude-haiku-5-5 EVAL_PRICE_INPUT=0.10 EVAL_PRICE_OUTPUT=0.50` for the cost
+line.
 
 ## Out of scope
 
