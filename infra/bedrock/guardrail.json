@@ -33,22 +33,43 @@
           "Write me a poem about the sea.",
           "Help me debug my Python code.",
           "Who won the cricket world cup?"
-        ]
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
       }
     ]
   },
   "sensitiveInformationPolicyConfig": {
     "piiEntitiesConfig": [
-      { "type": "CREDIT_DEBIT_CARD_NUMBER", "action": "ANONYMIZE" },
-      { "type": "CREDIT_DEBIT_CARD_CVV", "action": "BLOCK" },
-      { "type": "US_BANK_ACCOUNT_NUMBER", "action": "ANONYMIZE" }
+      {
+        "type": "CREDIT_DEBIT_CARD_CVV",
+        "action": "BLOCK",
+        "inputAction": "BLOCK",
+        "outputAction": "BLOCK",
+        "inputEnabled": true,
+        "outputEnabled": true
+      }
     ],
     "regexesConfig": [
       {
         "name": "Bank account number",
         "description": "9 to 18 digit account numbers",
         "pattern": "\\b\\d{9,18}\\b",
-        "action": "ANONYMIZE"
+        "action": "ANONYMIZE",
+        "inputAction": "ANONYMIZE",
+        "outputAction": "ANONYMIZE",
+        "inputEnabled": true,
+        "outputEnabled": true
+      },
+      {
+        "name": "Card number",
+        "description": "13 to 19 digits, optionally grouped with spaces or dashes",
+        "pattern": "\\b(?:\\d[ -]?){12,18}\\d\\b",
+        "action": "ANONYMIZE",
+        "inputAction": "ANONYMIZE",
+        "outputAction": "ANONYMIZE",
+        "inputEnabled": true,
+        "outputEnabled": true
       }
     ]
   }
