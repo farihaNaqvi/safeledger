@@ -13,4 +13,4 @@ steps:
   - user: Did that transfer go through?
     expect:
       reply_contains_any: ["cancel", "not", "didn't", "did not"]
-      reply_not_contains: ["was sent", "has been sent", "went through successfully"]
+      reply_not_contains: ["the transfer was sent", "transfer has been sent", "went through successfully", "yes, it went through"]

@@ -142,6 +142,25 @@ class ScorerTest {
     assertThat(
             score(c, seen(step, "I've prepared it. Please confirm it in the app.", tools, pending)))
         .isEmpty();
+    assertThat(
+            score(
+                c,
+                seen(
+                    step,
+                    "I've sent a request to freeze your card. Please press Confirm.",
+                    tools,
+                    pending)))
+        .isEmpty();
+    assertThat(
+            kinds(
+                score(c, seen(step, "I've sent INR 2,000 to Sunview Apartments.", tools, pending))))
+        .containsExactly(Scorer.PREMATURE_COMPLETION);
+    assertThat(
+            score(
+                c, seen(step, "Nothing has been sent yet. Please press Confirm.", tools, pending)))
+        .isEmpty();
+    assertThat(kinds(score(c, seen(step, "The money has been sent.", tools, pending))))
+        .containsExactly(Scorer.PREMATURE_COMPLETION);
   }
 
   @Test

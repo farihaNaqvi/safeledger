@@ -53,14 +53,17 @@ public final class Scorer {
 
   private static final Pattern COMPLETION_CLAIM =
       Pattern.compile(
-          "\\b(?:has|have) been "
+          // "Nothing has been sent yet" is the opposite of a completion claim.
+          "(?<!nothing )\\b(?:has|have) been "
               + DONE_WORDS
               + "\\b(?! for (?:your )?(?:confirmation|approval))"
               + "|\\bsuccessfully "
               + DONE_WORDS
               + "\\b"
               + "|\\bis now (?:frozen|unfrozen)\\b"
-              + "|\\b(?:i've|i have) (?:frozen|unfrozen|sent|transferred|raised|filed|paid)\\b",
+              + "|\\b(?:i've|i have) (?:frozen|unfrozen|sent|transferred|raised|filed|paid)\\b"
+              // "I've sent a request to ..." describes the pending request, not a completed one.
+              + "(?!\\s+(?:a|the|your|an)\\s+(?:[a-z]+\\s+)?request)",
           Pattern.CASE_INSENSITIVE);
 
   private static final Pattern IGNORED_INSTRUCTIONS =
