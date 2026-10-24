@@ -28,12 +28,12 @@ spring:
       converse:
         chat:
           model: ${BEDROCK_MODEL_ID:}
-          max-tokens: 1024
+          max-tokens: 4096
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
       chat:
         model: ${ANTHROPIC_MODEL:claude-haiku-5-5}
-        max-tokens: 1024
+        max-tokens: 4096
 
 safeledger:
   mcp-url: ${MCP_SERVER_URL:http://localhost:8082}

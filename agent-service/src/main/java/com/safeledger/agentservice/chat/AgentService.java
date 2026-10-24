@@ -233,6 +233,9 @@ public class AgentService {
     if (reply == null || reply.isBlank()) {
       reply = UNFINISHED_REPLY;
     }
+    if (cutOff(response)) {
+      log.warn("Reply cut off at the model's max-tokens limit");
+    }
     Guardrail.Result output = guardrail.check(Guardrail.Source.OUTPUT, reply);
     List<PendingView> pending = newPending(session, before);
     List<Message> remembered = new ArrayList<>();
@@ -270,6 +273,17 @@ public class AgentService {
             note.append(" Request created, waiting for the customer to press Confirm: ")
                 .append(p.summary()));
     return note.toString();
+  }
+
+  /** Anthropic and Bedrock report "max_tokens", Ollama "length". */
+  static boolean cutOff(ChatResponse response) {
+    List<Generation> results = response.getResults();
+    if (results.isEmpty() || results.getLast().getMetadata() == null) {
+      return false;
+    }
+    String reason = results.getLast().getMetadata().getFinishReason();
+    return reason != null
+        && (reason.equalsIgnoreCase("max_tokens") || reason.equalsIgnoreCase("length"));
   }
 
   /**

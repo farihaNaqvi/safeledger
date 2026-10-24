@@ -24,8 +24,8 @@ public class BedrockGuardrail implements Guardrail {
   private static final Logger log = LoggerFactory.getLogger(BedrockGuardrail.class);
 
   static final String FALLBACK_BLOCKED =
-      "Sorry, I can't help with that. I can help with your own accounts, cards, transactions,"
-          + " payees and disputes.";
+      "Sorry, I can't process that message. Please ask again in your own words. I can help with"
+          + " your own accounts, cards, transactions, payees and disputes.";
 
   private final BedrockRuntimeClient client;
   private final String guardrailId;

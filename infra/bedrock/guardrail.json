@@ -1,8 +1,8 @@
 {
   "name": "safeledger-guardrail",
   "description": "SafeLedger banking assistant: prompt attacks, off-topic requests, card and account numbers",
-  "blockedInputMessaging": "Sorry, I can't help with that. I can help with your own accounts, cards, transactions, payees and disputes.",
-  "blockedOutputsMessaging": "Sorry, I can't help with that. I can help with your own accounts, cards, transactions, payees and disputes.",
+  "blockedInputMessaging": "Sorry, I can't process that message. Please ask again in your own words. I can help with your own accounts, cards, transactions, payees and disputes.",
+  "blockedOutputsMessaging": "Sorry, I can't process that message. Please ask again in your own words. I can help with your own accounts, cards, transactions, payees and disputes.",
   "contentPolicyConfig": {
     "filtersConfig": [
       { "type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE" },
