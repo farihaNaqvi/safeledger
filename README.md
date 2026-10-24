@@ -16,7 +16,7 @@ Building phase by phase. Currently: **Phase 6 — Observability and cost**.
 | 3. MCP server and policy layer | done |
 | 4. Agent service | done (live check on Claude Haiku 5.5 + Bedrock Guardrails) |
 | 5. Evaluation and injection test suite | done: injection 15/15, golden 18/20 |
-| 6. Observability and cost | not started |
+| 6. Observability and cost | done locally; CloudWatch dashboard comes with Phase 7 |
 | 7. AWS deployment with CDK | not started |
 | 8. Documentation and demo | not started |
 
@@ -228,6 +228,42 @@ Latest full run (Claude Haiku 5.5 through the Claude API, Bedrock Guardrails on)
 API, set `SAFELEDGER_CHAT_MODEL=anthropic` and `ANTHROPIC_API_KEY` in `infra/.env`, and pass
 `EVAL_MODEL=anthropic:claude-haiku-5-5 EVAL_PRICE_INPUT=0.10 EVAL_PRICE_OUTPUT=0.50` for the cost
 line.
+
+## Observability
+
+Every request gets a correlation ID (`X-Correlation-Id`) at agent-service, passed to the MCP server
+and the bank API and present in every log line next to the trace and span IDs. All three services
+export OpenTelemetry traces and Micrometer metrics.
+
+Run the stack with Prometheus, Tempo and Grafana (bound to localhost only):
+
+```
+docker compose -f infra/docker-compose.yml -f infra/docker-compose.observability.yml up --build
+```
+
+Grafana at `http://localhost:3000` opens the SafeLedger dashboard: cost per session, model cost,
+injection flags by rule, guardrail interventions, tool calls by tool and outcome, pending actions,
+tokens and latency. Traces are under **Explore → Tempo**.
+
+**One trace per conversation step.** A chat turn's trace covers the model calls (with token counts
+and estimated cost as attributes), each tool call in agent-service and bank-mcp-server, and the
+bank API calls behind them. The chat response returns the trace ID in `X-Trace-Id`, and the page
+sends Confirm and Cancel with a matching `traceparent`, so creating and confirming a transfer is a
+single trace across all three services.
+
+| Metric | Meaning |
+|---|---|
+| `safeledger_model_cost_usd_total`, `safeledger_chat_sessions_total` | estimated cost (from `MODEL_PRICE_INPUT` / `MODEL_PRICE_OUTPUT`, USD per million tokens) and sessions that chatted; their ratio is the cost per session |
+| `safeledger_model_tokens_total{type}` | input and output tokens |
+| `safeledger_tool_seconds{tool,outcome}` | every MCP tool call and its outcome code |
+| `safeledger_actions_total{event,tool}` | pending actions created, confirmed, executed, failed, cancelled, expired |
+| `safeledger_injection_flags_total{rule,tool}` | suspicious text in bank data, notes and reasons |
+| `safeledger_guardrail_interventions_total{source,kind}` | guardrail blocks and masks, on input and output |
+| `safeledger_identity_rejected_total` | MCP requests without a valid signed identity |
+
+Tags never contain customer, session or account IDs; request metrics use URI templates. Prompt and
+tool content are not recorded in traces. `/actuator/prometheus` is open on each service for local
+use; in AWS it is reachable only inside the VPC.
 
 ## Out of scope
 
