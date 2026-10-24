@@ -1,0 +1,62 @@
+name: Deploy to AWS
+
+# Manual only: the stack is billed by the hour. Destroy it the same day.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: deploy or destroy
+        type: choice
+        options: [deploy, destroy]
+        default: deploy
+      allowed_cidr:
+        description: CIDR allowed to reach the demo, e.g. your IP as 203.0.113.7/32
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: aws-deploy
+  cancel-in-progress: false
+
+jobs:
+  cdk:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      CDK_CLI_VERSION: 2.1146.1
+      AWS_REGION: us-east-1
+      CDK_DEFAULT_REGION: us-east-1
+      ALLOWED_CIDR: ${{ inputs.allowed_cidr }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Account
+        run: echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        if: inputs.action == 'deploy'
+        working-directory: infra/cdk
+        run: npx --yes "aws-cdk@$CDK_CLI_VERSION" deploy --all --require-approval never -c allowedCidr="$ALLOWED_CIDR"
+
+      - name: Destroy
+        if: inputs.action == 'destroy'
+        working-directory: infra/cdk
+        run: npx --yes "aws-cdk@$CDK_CLI_VERSION" destroy --all --force -c allowedCidr=127.0.0.1/32
