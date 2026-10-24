@@ -110,7 +110,8 @@ schema has a customer ID.
 
 **Limits** (configurable in `application.yml`): INR 50,000 per transfer and 100,000 per day
 (pending transfers count, so splitting does not help), 5 write requests per session, 2 pending
-actions per customer, 30 tool calls per minute per session.
+actions per customer, 30 tool calls per minute per session. A request identical to one already
+waiting for Confirm (same tool and target, any wording) is rejected with `ALREADY_PENDING`.
 
 **Untrusted text.** Merchant, description, payee name and dispute reason are returned inside
 `untrusted_text`, and tool descriptions tell the model that this is data, never instructions. An
@@ -149,6 +150,12 @@ message and every reply. This is the intended setup. Set in `infra/.env`:
 The service refuses to start if Bedrock is selected without a model ID, or guardrails are on
 without a guardrail ID.
 
+The guardrail checks customer messages for prompt attacks, off-topic requests, investment advice
+and CVVs, and masks full card numbers (13 to 19 digits, with or without spaces) and account numbers
+(9 to 18 digits) in both directions. Masking uses patterns rather than Bedrock's built-in card and
+account detectors, which also masked last-four digits such as "card ending 4821". A masked message
+still reaches the model, with the number replaced.
+
 **Claude API instead of a Bedrock model.** New AWS accounts can have every Bedrock model quota at
 0, which blocks model calls while the guardrail API still works. In that case set
 `SAFELEDGER_CHAT_MODEL=anthropic`, `ANTHROPIC_API_KEY` and optionally `ANTHROPIC_MODEL` (default
@@ -169,6 +176,9 @@ reply reports `"guardrail": "none"`.
    The model has no tool for them; any tool name it invents gets an `UNKNOWN_TOOL` error.
 3. Each turn is capped at 8 tool calls, 10 model rounds and 90 seconds.
 4. The system prompt is versioned (`prompts/system-vN.md`) and every reply reports its version.
+   After each turn the app adds an `[App]` note to the conversation memory listing the tools that
+   ran and the requests waiting for Confirm, so later turns rely on facts, not on the model's
+   earlier wording.
 5. State-changing requests need `X-Requested-With: SafeLedger`, and the session cookie is
    `HttpOnly` and `SameSite=Strict`.
 

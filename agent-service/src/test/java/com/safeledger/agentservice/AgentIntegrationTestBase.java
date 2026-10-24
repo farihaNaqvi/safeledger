@@ -66,6 +66,8 @@ public abstract class AgentIntegrationTestBase {
 
   static final String BLOCKED_WORD = "guardrail-block-me";
   static final String BLOCKED_REPLY = "Sorry, I can't help with that.";
+  static final String CARD_NUMBER = "4111 1111 1111 1111";
+  static final String CARD_MASK = "{CREDIT_DEBIT_CARD_NUMBER}";
 
   @TestConfiguration(proxyBeanMethods = false)
   static class Beans {
@@ -74,15 +76,18 @@ public abstract class AgentIntegrationTestBase {
       return new ScriptedChatModel();
     }
 
-    /** Blocks any text containing {@link #BLOCKED_WORD}, on input or output. */
+    /** Blocks any text containing {@link #BLOCKED_WORD} and masks {@link #CARD_NUMBER}. */
     @Bean
     @Primary
     Guardrail testGuardrail() {
       return new Guardrail() {
         @Override
         public Result check(Source source, String text) {
-          return text.contains(BLOCKED_WORD)
-              ? new Result(true, BLOCKED_REPLY)
+          if (text.contains(BLOCKED_WORD)) {
+            return Result.blocked(BLOCKED_REPLY);
+          }
+          return text.contains(CARD_NUMBER)
+              ? Result.masked(text.replace(CARD_NUMBER, CARD_MASK))
               : Result.passed(text);
         }
 

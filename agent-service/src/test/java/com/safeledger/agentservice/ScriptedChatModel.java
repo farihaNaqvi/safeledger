@@ -1,7 +1,9 @@
 package com.safeledger.agentservice;
 
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
@@ -74,6 +76,19 @@ public class ScriptedChatModel implements ChatModel {
     AssistantMessage.ToolCall call =
         new AssistantMessage.ToolCall("call-" + System.nanoTime(), "function", tool, argumentsJson);
     return response(AssistantMessage.builder().content("").toolCalls(List.of(call)).build());
+  }
+
+  /** The same response preceded by a thinking generation, the way Anthropic models return it. */
+  static ChatResponse afterThinking(ChatResponse response) {
+    AssistantMessage thinking =
+        AssistantMessage.builder()
+            .content("The customer wants their balance.")
+            .properties(Map.of("signature", "sig"))
+            .build();
+    List<Generation> generations = new ArrayList<>();
+    generations.add(new Generation(thinking));
+    generations.addAll(response.getResults());
+    return new ChatResponse(generations, response.getMetadata());
   }
 
   private static ChatResponse response(AssistantMessage message) {

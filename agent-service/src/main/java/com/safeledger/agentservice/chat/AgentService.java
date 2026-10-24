@@ -35,6 +35,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
@@ -171,9 +172,11 @@ public class AgentService {
 
   private TurnResult run(CustomerSession session, String message, Set<UUID> before) {
     Guardrail.Result input = guardrail.check(Guardrail.Source.INPUT, message);
-    if (input.intervened()) {
+    if (input.blocked()) {
       return result(input.text(), List.of(), 0, true, TokenUsage.NONE);
     }
+    // Masked when the customer typed a card or account number: the model only sees the mask.
+    String customerText = input.text();
 
     McpSyncClient client;
     try {
@@ -205,15 +208,17 @@ public class AgentService {
     List<Message> messages = new ArrayList<>();
     messages.add(new SystemMessage(systemPrompt.render()));
     messages.addAll(memory.get(session.sessionId()));
-    messages.add(new UserMessage(message));
+    messages.add(new UserMessage(customerText));
     Prompt prompt = new Prompt(messages, options);
 
     ChatResponse response = chatModel.call(prompt);
     TokenUsage usage = TokenUsage.NONE.plus(response);
     int rounds = 1;
     int toolCalls = 0;
+    List<String> toolNames = new ArrayList<>();
     while (response.hasToolCalls() && rounds < config.maxModelRoundsPerTurn()) {
-      toolCalls += response.getResult().getOutput().getToolCalls().size();
+      answer(response).getToolCalls().forEach(call -> toolNames.add(call.name()));
+      toolCalls += answer(response).getToolCalls().size();
       ToolExecutionResult executed = toolCallingManager.executeToolCalls(prompt, response);
       prompt = new Prompt(executed.conversationHistory(), options);
       response = chatModel.call(prompt);
@@ -222,16 +227,21 @@ public class AgentService {
     }
 
     String reply =
-        response.hasToolCalls() || response.getResult() == null
+        response.hasToolCalls() || answer(response) == null
             ? UNFINISHED_REPLY
-            : response.getResult().getOutput().getText();
+            : answer(response).getText();
     if (reply == null || reply.isBlank()) {
       reply = UNFINISHED_REPLY;
     }
     Guardrail.Result output = guardrail.check(Guardrail.Source.OUTPUT, reply);
-    memory.add(
-        session.sessionId(),
-        List.of(new UserMessage(message), new AssistantMessage(output.text())));
+    List<PendingView> pending = newPending(session, before);
+    List<Message> remembered = new ArrayList<>();
+    remembered.add(new UserMessage(customerText));
+    if (!toolNames.isEmpty()) {
+      remembered.add(new AssistantMessage("[App] " + toolNote(toolNames, pending)));
+    }
+    remembered.add(new AssistantMessage(output.text()));
+    memory.add(session.sessionId(), remembered);
     log.info(
         "Turn finished: toolCalls={} rounds={} inputTokens={} outputTokens={} prompt={}",
         toolCalls,
@@ -240,7 +250,35 @@ public class AgentService {
         usage.outputTokens(),
         systemPrompt.version());
     return result(
-        output.text(), newPending(session, before), toolCalls, output.intervened(), usage);
+        output.text(), pending, toolCalls, input.intervened() || output.intervened(), usage);
+  }
+
+  /**
+   * What the tools did this turn, kept in memory so later turns do not have to trust (or doubt) the
+   * model's own earlier wording.
+   */
+  static String toolNote(List<String> toolNames, List<PendingView> pending) {
+    StringBuilder note =
+        new StringBuilder("Tools used this turn: ")
+            .append(String.join(", ", toolNames.stream().distinct().toList()))
+            .append('.');
+    if (pending.isEmpty()) {
+      note.append(" No new request was created.");
+    }
+    pending.forEach(
+        p ->
+            note.append(" Request created, waiting for the customer to press Confirm: ")
+                .append(p.summary()));
+    return note.toString();
+  }
+
+  /**
+   * The generation holding the reply text and tool calls. Anthropic puts each thinking block in its
+   * own generation ahead of it; the other providers return just one.
+   */
+  private static AssistantMessage answer(ChatResponse response) {
+    List<Generation> results = response.getResults();
+    return results.isEmpty() ? null : results.getLast().getOutput();
   }
 
   private TurnResult result(

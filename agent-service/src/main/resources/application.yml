@@ -41,11 +41,11 @@ safeledger:
     # Shared with bank-mcp-server. No default on purpose: the service refuses to start without it.
     hmac-secret: ${IDENTITY_HMAC_SECRET}
   agent:
-    system-prompt: classpath:prompts/system-v2.md
+    system-prompt: classpath:prompts/system-v3.md
     max-tool-calls-per-turn: 8
     max-model-rounds-per-turn: 10
     turn-timeout: 90s
-    memory-messages: 20
+    memory-messages: 30
     timezone: ${BANK_TIMEZONE:Asia/Kolkata}
   guardrail:
     # Amazon Bedrock Guardrails on every customer message and every reply.
