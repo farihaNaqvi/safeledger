@@ -9,8 +9,10 @@ idempotent and audited; and the whole thing is measured by an injection test sui
 end, and deployable to AWS with CDK. Built with Spring Boot, Spring AI, the MCP Java SDK, Claude
 and Amazon Bedrock Guardrails.
 
-**Demo video (2 minutes):** *link coming soon*; the script is in
-[docs/demo-script.md](docs/demo-script.md).
+**Demo video (5½ minutes, with chapters):** architecture, everyday use, live attacks, the
+defences and the evaluation results.
+
+[![SafeLedger demo video](docs/images/demo-thumbnail.png)](https://youtu.be/br8pukEon18)
 
 All data in this repo is synthetic. No real card numbers, names or employer data.
 
