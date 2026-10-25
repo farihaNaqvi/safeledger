@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -239,7 +238,6 @@ public class AgentService {
       throw new IllegalStateException("Chat model does not support tool calling");
     }
     toolBuilder.toolCallbacks(tools);
-    withoutExtendedThinking(builder);
     ChatOptions options = builder.build();
 
     List<Message> messages = new ArrayList<>();
@@ -317,17 +315,6 @@ public class AgentService {
             note.append(" Request created, waiting for the customer to press Confirm: ")
                 .append(p.summary()));
     return note.toString();
-  }
-
-  /**
-   * Claude's signed thinking blocks are bound to the exact conversation before them, and the tool
-   * loop rebuilds that history between rounds, so the Claude API sometimes rejected a later round
-   * (HTTP 500 in the live eval). The agent's turns are short tool lookups and do not need it.
-   */
-  static void withoutExtendedThinking(ChatOptions.Builder<?> builder) {
-    if (builder instanceof AnthropicChatOptions.Builder anthropic) {
-      anthropic.thinkingDisabled();
-    }
   }
 
   /** Anthropic and Bedrock report "max_tokens", Ollama "length". */
