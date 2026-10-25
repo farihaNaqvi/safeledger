@@ -82,8 +82,11 @@ Docker, so Java is only needed to run the tests.
      of a cent.
    - **B. Amazon Bedrock with Bedrock Guardrails:** the full setup; needs AWS credentials and a
      guardrail (see [Agent service](#agent-service-port-8080)).
-   - **C. Ollama:** free and local. Install [Ollama](https://ollama.com), run
-     `ollama pull qwen2.5:7b`, and expect slow, weaker answers on a laptop CPU.
+   - **C. Ollama:** free and local. Install [Ollama](https://ollama.com) and run
+     `ollama pull qwen2.5:7b`. Good for checking the setup, but a small local model is slow on a CPU
+     and often asks for IDs instead of looking them up, so the freeze and injection prompts below
+     work properly only with A or B. The safety rules hold either way: nothing runs without
+     Confirm.
 4. **Start everything.** The first build takes a few minutes.
    ```
    docker compose -f infra/docker-compose.yml up --build -d
