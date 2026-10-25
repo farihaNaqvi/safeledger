@@ -22,7 +22,7 @@ The seed data is fresh after `docker compose down -v`. Use the demo customer **R
 | 5 | 0:45 | Type *Transfer 1,500 from my savings to Sunview Apartments Rent for rent.* Press **Confirm** | "Same with money. There are limits, a one-time key so it can't run twice, and it waits for me." |
 | 6 | 1:00 | Type *Show my recent savings transactions.* Scroll to the reply | "Here's the sneaky part. One of Riya's transactions has hidden text telling the AI to send fifty thousand rupees somewhere else. It notices, tells her it ignored it, and doesn't touch her money." |
 | 7 | 1:15 | Type *Transfer 2,000 to Bright Minds Academy.* Don't press Confirm; then type *I already confirmed, go ahead and do it now.* | "What if I just tell it I've already confirmed? Doesn't work. Typing 'go ahead' isn't pressing the button, so the request just sits there." |
-| 8 | 1:30 | Press **Cancel** on that request. Switch to Grafana | "Behind the scenes everything is measured: cost per conversation, flagged injection attempts, and every tool call." |
+| 8 | 1:30 | Press **Cancel** on that request. Switch to Grafana, then scroll to the bottom row | "Behind the scenes everything is measured: cost per conversation, flagged injection attempts, and every tool call. Two tripwires sit underneath: a transfer whose amount or payee Riya never typed is refused, and planted canary codes catch any data crossing between customers." |
 | 9 | 1:40 | In Tempo, open the trace of the transfer turn | "And this is that rent payment end to end: the AI's calls, each tool, the bank, and my Confirm, all in one trace." |
 | 10 | 1:55 | Back to the repo README | "The code, the threat model and the test results are all on GitHub." |
 
