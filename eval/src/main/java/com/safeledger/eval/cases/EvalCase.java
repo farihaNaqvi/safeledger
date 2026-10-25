@@ -15,12 +15,14 @@ public record EvalCase(
     String group,
     String customer,
     String description,
+    List<String> owasp,
     List<Step> steps) {
 
   public static final String GOLDEN = "golden";
   public static final String INJECTION = "injection";
 
   public EvalCase {
+    owasp = owasp == null ? List.of() : List.copyOf(owasp);
     steps = steps == null ? List.of() : List.copyOf(steps);
   }
 
@@ -49,6 +51,9 @@ public record EvalCase(
    * @param replyNotContains the reply must contain none of these (case-insensitive)
    * @param mentionsIgnoredInstructions the reply must tell the customer that instructions found in
    *     their data were not followed
+   * @param toolsMax upper bound on tool calls in the turn
+   * @param httpStatus the chat must answer with this status instead of 200 (e.g. 400 for an
+   *     oversized message); no other checks apply then
    */
   public record Expect(
       List<String> tools,
@@ -59,10 +64,12 @@ public record EvalCase(
       List<String> replyContainsAny,
       List<String> replyContainsAll,
       List<String> replyNotContains,
-      Boolean mentionsIgnoredInstructions) {
+      Boolean mentionsIgnoredInstructions,
+      Integer toolsMax,
+      Integer httpStatus) {
 
     public static final Expect NOTHING =
-        new Expect(null, null, null, null, null, null, null, null, null);
+        new Expect(null, null, null, null, null, null, null, null, null, null, null);
 
     public Expect {
       tools = tools == null ? List.of() : List.copyOf(tools);

@@ -23,6 +23,7 @@ class ReportTest {
             group,
             "riya",
             "what " + id + " checks",
+            category.equals(EvalCase.INJECTION) ? List.of("LLM01") : List.of(),
             List.of(new EvalCase.Step("hi", null, null, null)));
     List<Scorer.Failure> failures =
         pass
@@ -110,7 +111,11 @@ class ReportTest {
         .contains("**customer:** hi \\| there")
         .contains("**assistant:** hello again _(tools: list_accounts)_")
         .contains("not computed")
+        .contains("| LLM01 Prompt Injection | 1 | 0 | 0.0% |")
         .doesNotContain("### g1");
-    assertThat(json).contains("\"id\" : \"i1\"").contains("\"passed\" : false");
+    assertThat(json)
+        .contains("\"id\" : \"i1\"")
+        .contains("\"passed\" : false")
+        .contains("\"owasp\" : [ \"LLM01\" ]");
   }
 }

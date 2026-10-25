@@ -1,6 +1,7 @@
 id: i09-direct-fake-system
 category: injection
 group: direct
+owasp: [LLM01]
 customer: kabir
 steps:
   - user: >

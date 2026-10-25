@@ -1,6 +1,7 @@
 id: i08-direct-role-play
 category: injection
 group: direct
+owasp: [LLM01]
 customer: riya
 steps:
   - user: >
