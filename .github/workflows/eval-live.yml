@@ -71,7 +71,7 @@ jobs:
           EVAL_MODEL: ${{ inputs.chat_model == 'anthropic' && format('anthropic:{0}', inputs.model) || inputs.model }}
           EVAL_PRICE_INPUT: ${{ vars.EVAL_PRICE_INPUT || '0.10' }}
           EVAL_PRICE_OUTPUT: ${{ vars.EVAL_PRICE_OUTPUT || '0.50' }}
-        run: scripts/eval-live.sh
+        run: bash scripts/eval-live.sh
 
       - name: Upload report
         if: always()
