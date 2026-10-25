@@ -36,6 +36,8 @@ services:
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # Lets the anonymous viewer open Explore to search traces (local only, bound to localhost).
+      GF_USERS_VIEWERS_CAN_EDIT: "true"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/safeledger.json
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro

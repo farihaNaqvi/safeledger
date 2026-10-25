@@ -262,9 +262,18 @@ public class WriteTools {
           if (memo != null) {
             stored.put("note", memo);
           }
+          // The source account is named so the customer can check it before pressing Confirm.
+          String from =
+              bank.accounts(caller.customerId()).stream()
+                  .filter(a -> a.id().equals(accountId))
+                  .map(a -> a.type().toLowerCase(Locale.ROOT) + " account")
+                  .findFirst()
+                  .orElse("account");
           String summary =
               "Transfer INR "
                   + value.toPlainString()
+                  + " from your "
+                  + from
                   + " to \""
                   + clip(target.name(), 60)
                   + "\" ("

@@ -15,11 +15,27 @@ class CaseLoaderTest {
   private static final Path CASES = Path.of("src/test/resources/cases");
 
   @Test
-  void theSuiteHasTheSpecsCaseCounts() {
+  void theSuiteHasSeventyConversationsTwentyEverydayAndFiftyAttacks() {
     List<EvalCase> cases = CaseLoader.load(CASES);
 
+    assertThat(cases).hasSize(70);
     assertThat(cases.stream().filter(c -> c.category().equals(EvalCase.GOLDEN))).hasSize(20);
-    assertThat(cases.stream().filter(c -> c.category().equals(EvalCase.INJECTION))).hasSize(15);
+    assertThat(cases.stream().filter(c -> c.category().equals(EvalCase.INJECTION))).hasSize(50);
+  }
+
+  @Test
+  void everyAttackIsTaggedAndEachApplicableOwaspCategoryHasAtLeastThreeCases() {
+    List<EvalCase> attacks =
+        CaseLoader.load(CASES).stream()
+            .filter(c -> c.category().equals(EvalCase.INJECTION))
+            .toList();
+
+    assertThat(attacks).allSatisfy(c -> assertThat(c.owasp()).isNotEmpty());
+    for (String tag : List.of("LLM01", "LLM02", "LLM05", "LLM06", "LLM07", "LLM09", "LLM10")) {
+      assertThat(attacks.stream().filter(c -> c.owasp().contains(tag)).count())
+          .as(tag)
+          .isGreaterThanOrEqualTo(3);
+    }
   }
 
   @Test

@@ -1,14 +1,19 @@
 name: Live eval
 
-# Manual only: every run is billed by Bedrock.
+# Manual only: every run is billed (model and guardrail).
 on:
   workflow_dispatch:
     inputs:
+      chat_model:
+        description: anthropic (Claude API) or bedrock-converse
+        type: choice
+        options: [anthropic, bedrock-converse]
+        default: anthropic
       model:
-        description: Bedrock inference profile ID
-        default: us.anthropic.claude-haiku-5-5
+        description: Claude API model, or a Bedrock inference profile ID
+        default: claude-haiku-5-5
       cases:
-        description: Case id prefixes, comma separated (empty runs all 35)
+        description: Case id prefixes, comma separated (empty runs all 70)
         default: ""
 
 permissions:
@@ -40,23 +45,32 @@ jobs:
 
       - name: Write infra/.env
         env:
+          CHAT_MODEL: ${{ inputs.chat_model }}
           MODEL: ${{ inputs.model }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GUARDRAIL_ID: ${{ vars.BEDROCK_GUARDRAIL_ID }}
           GUARDRAIL_VERSION: ${{ vars.BEDROCK_GUARDRAIL_VERSION }}
         run: |
           {
             echo "IDENTITY_HMAC_SECRET=$(openssl rand -hex 32)"
-            echo "BEDROCK_MODEL_ID=$MODEL"
+            echo "SAFELEDGER_CHAT_MODEL=$CHAT_MODEL"
             echo "AWS_REGION=us-east-1"
             echo "BEDROCK_GUARDRAIL_ID=$GUARDRAIL_ID"
             echo "BEDROCK_GUARDRAIL_VERSION=$GUARDRAIL_VERSION"
+            if [ "$CHAT_MODEL" = "anthropic" ]; then
+              echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+              echo "ANTHROPIC_MODEL=$MODEL"
+            else
+              echo "BEDROCK_MODEL_ID=$MODEL"
+            fi
           } > infra/.env
 
       - name: Run the live suite
         env:
           EVAL_CASES: ${{ inputs.cases }}
-          EVAL_PRICE_INPUT: ${{ vars.EVAL_PRICE_INPUT }}
-          EVAL_PRICE_OUTPUT: ${{ vars.EVAL_PRICE_OUTPUT }}
+          EVAL_MODEL: ${{ inputs.chat_model == 'anthropic' && format('anthropic:{0}', inputs.model) || inputs.model }}
+          EVAL_PRICE_INPUT: ${{ vars.EVAL_PRICE_INPUT || '0.10' }}
+          EVAL_PRICE_OUTPUT: ${{ vars.EVAL_PRICE_OUTPUT || '0.50' }}
         run: scripts/eval-live.sh
 
       - name: Upload report

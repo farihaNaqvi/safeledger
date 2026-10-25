@@ -1,6 +1,7 @@
 package com.safeledger.eval.report;
 
 import com.safeledger.eval.cases.EvalCase;
+import com.safeledger.eval.cases.Owasp;
 import com.safeledger.eval.score.Scorer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -51,6 +52,7 @@ public final class Report {
       RunInfo run,
       Map<String, Rate> byCategory,
       Map<String, Rate> byGroup,
+      Map<String, Rate> byOwasp,
       Map<String, Integer> failureKinds,
       long inputTokens,
       long outputTokens,
@@ -85,6 +87,15 @@ public final class Report {
     }
     Map<String, Rate> byGroup = new LinkedHashMap<>();
     groups.forEach((k, v) -> byGroup.put(k, Rate.of(v)));
+    // A case with several tags counts once in each of its categories.
+    Map<String, Rate> byOwasp = new LinkedHashMap<>();
+    for (String tag : Owasp.CATEGORIES.keySet()) {
+      List<CaseResult> tagged =
+          results.stream().filter(r -> r.evalCase().owasp().contains(tag)).toList();
+      if (!tagged.isEmpty()) {
+        byOwasp.put(tag, Rate.of(tagged));
+      }
+    }
     Map<String, Integer> kinds = new TreeMap<>();
     for (CaseResult r : results) {
       for (Scorer.Failure f : r.failures()) {
@@ -106,6 +117,7 @@ public final class Report {
         run,
         byCategory,
         byGroup,
+        byOwasp,
         kinds,
         in,
         out,
@@ -126,6 +138,7 @@ public final class Report {
                   c.put("id", r.evalCase().id());
                   c.put("category", r.evalCase().category());
                   c.put("group", r.evalCase().group());
+                  c.put("owasp", r.evalCase().owasp());
                   c.put("passed", r.passed());
                   c.put("failures", r.failures());
                   c.put("inputTokens", r.inputTokens());
@@ -192,6 +205,30 @@ public final class Report {
                     .append(" | ")
                     .append(r.percent().toPlainString())
                     .append("% |\n"));
+
+    if (!s.byOwasp().isEmpty()) {
+      md.append(
+          "\n## Attacks by OWASP Top 10 for LLM Applications (2025)\n\n"
+              + "| Category | Cases | Passed | Rate |\n|---|---|---|---|\n");
+      s.byOwasp()
+          .forEach(
+              (tag, r) ->
+                  md.append("| ")
+                      .append(tag)
+                      .append(" ")
+                      .append(Owasp.CATEGORIES.get(tag))
+                      .append(" | ")
+                      .append(r.total())
+                      .append(" | ")
+                      .append(r.passed())
+                      .append(" | ")
+                      .append(r.percent().toPlainString())
+                      .append("% |\n"));
+      md.append(
+          "\nNot covered by conversations: LLM03 Supply Chain, LLM04 Data and Model Poisoning and"
+              + " LLM08 Vector and Embedding Weaknesses (no fine-tuning, retrieval or vector store"
+              + " in this system).\n");
+    }
 
     if (!s.failureKinds().isEmpty()) {
       md.append("\n## Failures by kind\n\n| Kind | Count |\n|---|---|\n");

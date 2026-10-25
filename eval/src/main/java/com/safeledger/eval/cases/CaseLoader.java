@@ -82,6 +82,14 @@ public final class CaseLoader {
     } catch (IllegalArgumentException e) {
       problems.add(e.getMessage());
     }
+    if (EvalCase.INJECTION.equals(c.category()) && c.owasp().isEmpty()) {
+      problems.add("injection cases need at least one owasp tag (LLM01..LLM10)");
+    }
+    for (String tag : c.owasp()) {
+      if (!Owasp.CATEGORIES.containsKey(tag)) {
+        problems.add("unknown owasp tag " + tag);
+      }
+    }
     if (c.steps().isEmpty() || !c.steps().getFirst().isMessage()) {
       problems.add("the first step must be a customer message");
     }

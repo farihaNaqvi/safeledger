@@ -78,6 +78,18 @@ public class ScriptedChatModel implements ChatModel {
     return response(AssistantMessage.builder().content("").toolCalls(List.of(call)).build());
   }
 
+  /** A tool call with text next to it and (stand-in) thinking metadata, as Claude returns it. */
+  static ChatResponse narratedToolCall(String text, String tool, String argumentsJson) {
+    AssistantMessage.ToolCall call =
+        new AssistantMessage.ToolCall("call-" + System.nanoTime(), "function", tool, argumentsJson);
+    return response(
+        AssistantMessage.builder()
+            .content(text)
+            .toolCalls(List.of(call))
+            .properties(Map.of("signature", "sig"))
+            .build());
+  }
+
   /** The same response preceded by a thinking generation, the way Anthropic models return it. */
   static ChatResponse afterThinking(ChatResponse response) {
     AssistantMessage thinking =

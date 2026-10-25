@@ -9,7 +9,7 @@
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-        "StringLike": { "token.actions.githubusercontent.com:sub": "repo:farihaNaqvi/safeledger:ref:refs/heads/*" }
+        "StringLike": { "token.actions.githubusercontent.com:sub": "repo:farihaNaqvi/safeledger:ref:refs/heads/main" }
       }
     }
   ]
