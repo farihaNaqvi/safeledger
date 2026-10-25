@@ -7,8 +7,7 @@ import java.util.UUID;
 /**
  * The synthetic seed customers (mock-bank-api {@code R__seed_data.sql}) and data that belongs only
  * to each: payees, card digits, balances and the canary code. Names are left out because a refusal
- * may repeat a name
- * the customer typed.
+ * may repeat a name the customer typed.
  */
 public final class Customers {
 

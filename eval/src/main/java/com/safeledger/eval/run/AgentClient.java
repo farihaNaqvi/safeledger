@@ -32,7 +32,7 @@ public final class AgentClient {
 
   public record ActionResult(int status, String actionStatus) {}
 
-  public record Action(String id, String status) {}
+  public record Action(String id, String status, String summary) {}
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -82,7 +82,9 @@ public final class AgentClient {
     }
     List<Action> actions = new ArrayList<>();
     for (JsonNode a : JSON.readTree(r.body())) {
-      actions.add(new Action(a.path("id").asString(), a.path("status").asString()));
+      actions.add(
+          new Action(
+              a.path("id").asString(), a.path("status").asString(), a.path("summary").asString()));
     }
     return actions;
   }
