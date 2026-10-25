@@ -31,7 +31,7 @@ class ChatIT extends AgentIntegrationTestBase {
     assertThat(r.<List<?>>json("$.pendingActions")).isEmpty();
     assertThat(r.<Boolean>json("$.guardrailIntervened")).isFalse();
     assertThat(r.<String>json("$.guardrail")).isEqualTo("test");
-    assertThat(r.<String>json("$.promptVersion")).isEqualTo("system-v4");
+    assertThat(r.<String>json("$.promptVersion")).isEqualTo("system-v5");
     assertThat(r.<Integer>json("$.usage.inputTokens"))
         .isEqualTo(2 * ScriptedChatModel.INPUT_TOKENS);
     assertThat(r.<Integer>json("$.usage.outputTokens"))
