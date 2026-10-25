@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -62,6 +63,21 @@ public class ActionsClient {
 
   public Outcome cancel(CustomerSession session, UUID actionId) {
     return post(session, "/internal/actions/{id}/cancel", actionId);
+  }
+
+  /**
+   * Records what the customer typed, before the model sees it. The MCP server only lets a transfer,
+   * dispute or unfreeze through when its key values appear in these words.
+   */
+  public void recordUtterance(CustomerSession session, String text) {
+    client
+        .post()
+        .uri("/internal/utterances")
+        .headers(h -> headers(h, session))
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(Map.of("text", text))
+        .retrieve()
+        .toBodilessEntity();
   }
 
   private Outcome post(CustomerSession session, String path, UUID actionId) {

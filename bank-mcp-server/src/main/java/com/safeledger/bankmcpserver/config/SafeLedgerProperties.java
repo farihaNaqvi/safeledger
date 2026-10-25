@@ -8,7 +8,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("safeledger")
 public record SafeLedgerProperties(
-    Bank bank, Identity identity, Actions actions, Limits limits, String timezone) {
+    Bank bank,
+    Identity identity,
+    Actions actions,
+    Limits limits,
+    Provenance provenance,
+    String timezone) {
 
   private static final int MIN_SECRET_BYTES = 32;
 
@@ -23,6 +28,7 @@ public record SafeLedgerProperties(
               + MIN_SECRET_BYTES
               + " bytes");
     }
+    provenance = provenance == null ? new Provenance(true) : provenance;
   }
 
   public ZoneId zone() {
@@ -43,6 +49,11 @@ public record SafeLedgerProperties(
   }
 
   public record Actions(Duration ttl, Duration expirySweepInterval) {}
+
+  /**
+   * @param enabled transfers, disputes and unfreezes must be grounded in what the customer typed
+   */
+  public record Provenance(boolean enabled) {}
 
   public record Limits(
       BigDecimal maxTransferPerAction,

@@ -223,9 +223,9 @@ class InfrastructureTest {
 
   @Test
   void alarmsDashboardAndMetricFiltersExist() {
-    assertThat(resources(stacks.observability(), "AWS::CloudWatch::Alarm")).hasSize(2);
+    assertThat(resources(stacks.observability(), "AWS::CloudWatch::Alarm")).hasSize(3);
     assertThat(resources(stacks.observability(), "AWS::CloudWatch::Dashboard")).hasSize(1);
-    assertThat(resources(stacks.observability(), "AWS::Logs::MetricFilter")).hasSize(4);
+    assertThat(resources(stacks.observability(), "AWS::Logs::MetricFilter")).hasSize(6);
     assertThat(resources(stacks.services(), "AWS::Logs::LogGroup").values())
         .allSatisfy(r -> assertThat(props(r)).containsEntry("RetentionInDays", 7));
   }

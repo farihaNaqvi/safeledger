@@ -190,6 +190,19 @@ npx @modelcontextprotocol/inspector --cli http://localhost:8082/mcp --transport 
 Or run `npx @modelcontextprotocol/inspector` for the web UI: choose Streamable HTTP, URL
 `http://localhost:8082/mcp`, and add the `X-SafeLedger-Identity` header.
 
+### Provenance and canaries
+
+Two more layers ([ADR 0006](adr/0006-provenance-canaries-and-adversarial-testing.md)):
+
+- **Provenance.** agent-service records each customer message (masked) through
+  `POST /internal/utterances`, which the model cannot reach. A transfer, dispute or unfreeze whose
+  amount, payee, merchant or card digits the customer never typed in the session is refused with
+  `NOT_FROM_CUSTOMER` and audited, so a payee name or amount planted in bank data cannot become a
+  request even if the model is fooled. Freezing is exempt. Switch: `safeledger.provenance.enabled`.
+- **Canary tokens.** Each seed customer has a unique cashback reference code. A reply that shows
+  another customer's code is withheld, logged as a security event and counted
+  (`safeledger.canary.tripped`); in AWS a CloudWatch alarm fires on any trip.
+
 ## Agent service (port 8080)
 
 Customer-facing API and chat page at `http://localhost:8080`. Pick one of the three synthetic
@@ -263,6 +276,18 @@ Two layers, so CI stays free and deterministic:
    (direct, multilingual, encoded, fake tool results, poisoned transactions, payees and notes),
    sensitive information disclosure, improper output handling, excessive agency, system prompt
    leakage, misinformation and unbounded consumption.
+3. **Generated invariants, every build.** `ApprovalInvariantsIT` runs 300 seeded random sequences
+   of confirm, cancel, concurrent double confirm, expiry and sweep, by the owner and by another
+   customer, against the real endpoints and database, checking after every step that nothing runs
+   without an owner Confirm, nothing runs twice and terminal states never change.
+   `-Dproperty.sequences=10000` for a long run; a failure prints a seed that replays it.
+4. **Adaptive red team, on demand.** A second model plays the customer and adapts over up to six
+   turns, across six goals mapped to OWASP categories. Success is decided from evidence only
+   (other customers' markers and canaries, executed actions, amounts, number patterns, prompt
+   fragments). Paid and budget-capped: `-Deval.redteam=true`, `REDTEAM_BUDGET_USD` (default 0.55).
+   Latest run ([`eval/reports/redteam-report.md`](eval/reports/redteam-report.md)): 30
+   conversations, about 124 real attack turns after removing the attacker model's own refusals,
+   0 goals reached, about $0.33.
 
 The runner talks to agent-service like the browser, one fresh session per case, and reads every
 tool the model attempted from bank-mcp-server's audit log, including writes the policy layer

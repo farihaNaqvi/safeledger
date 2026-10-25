@@ -107,6 +107,7 @@ public class AgentService {
   private final ChatMemory memory;
   private final ToolCallingManager toolCallingManager;
   private final ChatMetrics metrics;
+  private final CanaryTripwire canaries;
   private final ObservationRegistry observations;
   private final AgentProperties.Cost cost;
   private final ExecutorService turns = Executors.newVirtualThreadPerTaskExecutor();
@@ -119,9 +120,11 @@ public class AgentService {
       SystemPrompt systemPrompt,
       AgentProperties properties,
       ChatMetrics metrics,
+      CanaryTripwire canaries,
       ObservationRegistry observations) {
     this.chatModel = chatModel;
     this.metrics = metrics;
+    this.canaries = canaries;
     this.observations = observations;
     this.cost = properties.cost();
     this.mcpClients = mcpClients;
@@ -212,6 +215,8 @@ public class AgentService {
     }
     // Masked when the customer typed a card or account number: the model only sees the mask.
     String customerText = input.text();
+    // Out of band from the model: the MCP server grounds write requests in these words.
+    actions.recordUtterance(session, customerText);
 
     McpSyncClient client;
     try {
@@ -273,6 +278,9 @@ public class AgentService {
     }
     Guardrail.Result output = guardrail.check(Guardrail.Source.OUTPUT, reply);
     metrics.guardrail(Guardrail.Source.OUTPUT, output);
+    if (canaries.tripped(session.customerId(), output.text())) {
+      output = Guardrail.Result.blocked(CanaryTripwire.WITHHELD);
+    }
     boolean firstTurn = memory.get(session.sessionId()).isEmpty();
     List<PendingView> pending = newPending(session, before);
     List<Message> remembered = new ArrayList<>();

@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -105,6 +106,7 @@ public class FakeMcpServer {
     callers.clear();
     toolCalls.clear();
     requests.clear();
+    utterances.clear();
     actions.clear();
     executions.set(0);
     rejectedRequests.set(0);
@@ -129,6 +131,15 @@ public class FakeMcpServer {
   }
 
   // ---- internal endpoints (not MCP tools) ----
+
+  /** Customer messages agent-service recorded, in order. */
+  final List<String> utterances = new CopyOnWriteArrayList<>();
+
+  @PostMapping("/internal/utterances")
+  ResponseEntity<Void> utterance(@RequestBody Map<String, String> body) {
+    utterances.add(body.get("text"));
+    return ResponseEntity.noContent().build();
+  }
 
   @GetMapping("/internal/actions")
   public List<Map<String, Object>> list(@RequestAttribute(ATTRIBUTE) Caller caller) {

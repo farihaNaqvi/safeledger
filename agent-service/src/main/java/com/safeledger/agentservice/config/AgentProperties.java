@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -16,7 +17,8 @@ public record AgentProperties(
     Agent agent,
     Guardrail guardrail,
     Cost cost,
-    List<DemoCustomer> customers) {
+    List<DemoCustomer> customers,
+    Map<UUID, List<String>> canaries) {
 
   private static final int MIN_SECRET_BYTES = 32;
 
@@ -31,6 +33,7 @@ public record AgentProperties(
     }
     customers = customers == null ? List.of() : List.copyOf(customers);
     cost = cost == null ? new Cost(null, null) : cost;
+    canaries = canaries == null ? Map.of() : Map.copyOf(canaries);
   }
 
   public record Identity(String hmacSecret) {
