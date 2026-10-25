@@ -26,3 +26,10 @@ button:disabled { opacity: .5; cursor: default; }
 #composer { display: flex; gap: 8px; margin-top: 16px; }
 #message { flex: 1; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
 .hint { color: var(--muted); font-size: 13px; }
+.msg.bot { white-space: normal; }
+.msg.bot p { margin: 0 0 8px; }
+.msg.bot p:last-child { margin-bottom: 0; }
+.msg.bot ul { margin: 0 0 8px; padding-left: 20px; }
+.msg.bot table { border-collapse: collapse; margin: 4px 0 8px; font-size: 14px; }
+.msg.bot th, .msg.bot td { border: 1px solid var(--border); padding: 3px 8px; text-align: left; }
+.msg.bot th { background: #f3f4f6; }

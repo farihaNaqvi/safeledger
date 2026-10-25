@@ -18,10 +18,59 @@ function sameTrace(traceId) {
   return { traceparent: `00-${traceId}-${span}-01` };
 }
 
+// Replies use a little Markdown: bold, bullet lists and pipe tables. The text is HTML-escaped
+// before any markup is added, so text from bank data can never become HTML.
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function inline(s) {
+  return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+function markdown(text) {
+  const lines = text.split('\n');
+  const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+  const isRule = (l) => /^\s*\|[\s:|-]+\|\s*$/.test(l);
+  const isItem = (l) => /^\s*[-*] /.test(l);
+  const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  let html = '';
+  for (let i = 0; i < lines.length;) {
+    if (isRow(lines[i])) {
+      const rows = [];
+      while (i < lines.length && isRow(lines[i])) rows.push(lines[i++]);
+      const header = rows.length > 1 && isRule(rows[1]);
+      html += '<table>' + rows.filter((r) => !isRule(r)).map((r, n) => {
+        const tag = header && n === 0 ? 'th' : 'td';
+        return '<tr>' + cells(r).map((c) => `<${tag}>${inline(c)}</${tag}>`).join('') + '</tr>';
+      }).join('') + '</table>';
+    } else if (isItem(lines[i])) {
+      html += '<ul>';
+      while (i < lines.length && isItem(lines[i])) {
+        html += '<li>' + inline(lines[i++].replace(/^\s*[-*] /, '')) + '</li>';
+      }
+      html += '</ul>';
+    } else if (/^#{1,6} /.test(lines[i])) {
+      html += '<p><strong>' + inline(lines[i++].replace(/^#+ /, '')) + '</strong></p>';
+    } else if (lines[i].trim() === '') {
+      i++;
+    } else {
+      const para = [];
+      while (i < lines.length && lines[i].trim() !== '' && !isRow(lines[i]) && !isItem(lines[i])) {
+        para.push(inline(lines[i++]));
+      }
+      html += '<p>' + para.join('<br>') + '</p>';
+    }
+  }
+  return html;
+}
+
 function add(cls, text) {
   const div = document.createElement('div');
   div.className = 'msg ' + cls;
-  div.textContent = text;
+  if (cls === 'bot') div.innerHTML = markdown(text);
+  else div.textContent = text;
   $('messages').appendChild(div);
   div.scrollIntoView({ block: 'end' });
   return div;
