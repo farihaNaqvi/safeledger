@@ -12,6 +12,7 @@ import com.safeledger.bankmcpserver.config.SafeLedgerProperties;
 import com.safeledger.bankmcpserver.identity.CallerIdentity;
 import com.safeledger.bankmcpserver.injection.InjectionDetector;
 import com.safeledger.bankmcpserver.policy.LimitService;
+import com.safeledger.bankmcpserver.provenance.ProvenancePolicy;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import java.math.BigDecimal;
@@ -63,6 +64,7 @@ public class WriteTools {
   private final LimitService limits;
   private final InjectionDetector detector;
   private final AuditLog audit;
+  private final ProvenancePolicy provenance;
   private final SafeLedgerProperties properties;
 
   public WriteTools(
@@ -72,6 +74,7 @@ public class WriteTools {
       LimitService limits,
       InjectionDetector detector,
       AuditLog audit,
+      ProvenancePolicy provenance,
       SafeLedgerProperties properties) {
     this.runner = runner;
     this.bank = bank;
@@ -79,6 +82,7 @@ public class WriteTools {
     this.limits = limits;
     this.detector = detector;
     this.audit = audit;
+    this.provenance = provenance;
     this.properties = properties;
   }
 
@@ -137,6 +141,7 @@ public class WriteTools {
           if ("ACTIVE".equals(card.status())) {
             throw new ToolError("ALREADY_ACTIVE", "This card is not frozen.");
           }
+          provenance.checkUnfreeze(caller, card.last4());
           String summary = "Unfreeze " + card.network() + " card ending " + card.last4() + ".";
           return pending(
               caller,
@@ -178,6 +183,7 @@ public class WriteTools {
           if (!"DEBIT".equals(txn.direction())) {
             throw new ToolError("NOT_DISPUTABLE", "Only debits can be disputed.");
           }
+          provenance.checkDispute(caller, txn.amount(), txn.merchant());
           boolean alreadyOpen =
               bank.disputes(caller.customerId()).stream()
                   .anyMatch(d -> d.transactionId().equals(txnId) && "OPEN".equals(d.status()));
@@ -249,6 +255,7 @@ public class WriteTools {
                           new ToolError(
                               "PAYEE_NOT_FOUND",
                               "That payee is not one of the customer's saved payees."));
+          provenance.checkTransfer(caller, value, target.name());
           limits.checkTransfer(caller, value, Instant.now());
           if (balance.balance().compareTo(value) < 0) {
             throw new ToolError(

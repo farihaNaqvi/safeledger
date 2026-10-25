@@ -42,7 +42,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
       "safeledger.bank.base-url=http://localhost:${local.server.port}/fake-bank",
       "safeledger.identity.hmac-secret=" + McpIntegrationTestBase.SECRET,
       // Tests trigger expiry themselves; keep the background sweep out of the way.
-      "safeledger.actions.expiry-sweep-interval=1h"
+      "safeledger.actions.expiry-sweep-interval=1h",
+      // These suites call write tools directly, with no customer messages; ProvenanceIT turns the
+      // check on and tests it.
+      "safeledger.provenance.enabled=${test.provenance:false}"
     })
 @Import(McpIntegrationTestBase.Containers.class)
 abstract class McpIntegrationTestBase {

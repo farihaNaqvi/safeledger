@@ -212,6 +212,8 @@ public class AgentService {
     }
     // Masked when the customer typed a card or account number: the model only sees the mask.
     String customerText = input.text();
+    // Out of band from the model: the MCP server grounds write requests in these words.
+    actions.recordUtterance(session, customerText);
 
     McpSyncClient client;
     try {

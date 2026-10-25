@@ -145,6 +145,19 @@ class ChatIT extends AgentIntegrationTestBase {
   }
 
   @Test
+  void theCustomersWordsAreRecordedWithTheMcpServerMaskedAndOnlyWhenNotBlocked() {
+    Browser browser = loggedIn(RIYA);
+    model.thenReply("ok").thenReply("ok");
+
+    browser.chat("Send 1,500 to Sunview Apartments Rent");
+    browser.chat("My card is " + CARD_NUMBER);
+    browser.chat("please " + BLOCKED_WORD);
+
+    assertThat(mcp.utterances)
+        .containsExactly("Send 1,500 to Sunview Apartments Rent", "My card is " + CARD_MASK);
+  }
+
+  @Test
   void laterTurnsSeeAnAppNoteOfWhatTheToolsDid() {
     Browser browser = loggedIn(RIYA);
     model.thenCall("request_card_freeze", "{\"cardLast4\":\"4821\"}").thenReply("Please confirm.");

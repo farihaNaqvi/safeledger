@@ -35,6 +35,10 @@ safeledger:
     max-write-requests-per-session: 5
     max-pending-actions: 2
     max-tool-calls-per-minute: 30
+  provenance:
+    # A transfer's amount and payee, a dispute's merchant or amount, and an unfreeze's card must
+    # appear in what the customer typed, not only in tool output.
+    enabled: true
   # Calendar day used for the daily transfer limit.
   timezone: ${BANK_TIMEZONE:Asia/Kolkata}
 
