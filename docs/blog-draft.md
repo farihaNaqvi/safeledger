@@ -59,11 +59,11 @@ Each of these showed up only in live runs, and each now has a test or a document
 
 Deterministic tests use a scripted model against a fake MCP server. They prove what must hold for
 *any* model: no confirm tool, caps, timeouts, guardrail blocking. They run on every build for free.
-A live suite of 35 conversations (20 normal, 15 attacks) runs on demand against the real model.
+A live suite of 70 conversations (20 normal, 50 attacks mapped to the OWASP Top 10 for LLM Applications) runs on demand against the real model.
 
 **Scoring needs scrutiny too.** Three of my first "failures" were the scorer misreading correct
 replies such as "Nothing has been sent yet". I fixed the scorer, counted the run conservatively, and
-wrote up every failure. Final run: 15/15 attack cases, 18/20 normal cases.
+wrote up every failure, including one real mistake: asked to freeze another customer's card, the model prepared a freeze on the customer's own card instead. The approval step contained it, and a prompt rule fixed it. Final run: 50/50 attacks, 20/20 normal cases.
 
 ## 6. Cheap cloud on purpose
 

@@ -31,7 +31,7 @@ Scope: the three services, the model and the guardrail, locally and on AWS. All 
   confirm tool, and no way to reveal secrets it does not have.
 - **Tests:** `ChatIT.guardrailBlocksInputBeforeTheModelSeesIt`,
   `BedrockGuardrailTest.blockedPiiTopicOrPromptAttackIsABlock`; live eval cases i07–i10 (prompt
-  leak, role play, fake SYSTEM message, bank admin): 15/15 injection cases pass in
+  leak, role play, fake SYSTEM message, bank admin): all 50 attack cases pass in
   [the eval report](../eval/reports/eval-report.md).
 
 ### 2. Indirect prompt injection
