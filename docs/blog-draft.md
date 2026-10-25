@@ -2,6 +2,8 @@
 
 *Design trade-offs from building a guarded banking assistant on MCP*
 
+Watch the 5½-minute walkthrough, with live attacks: https://youtu.be/br8pukEon18
+
 Most chat assistant demos let the model act. Ask it to send money and it calls `send_money`. That's
 a fine demo and a poor design for anything that matters. A language model can misunderstand, can
 be argued with, and reads whatever text you put in front of it: a transaction description that
