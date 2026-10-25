@@ -43,7 +43,8 @@ class PendingActionIT extends McpIntegrationTestBase {
     assertThat(result.isError()).isFalse();
     assertThat(result.<String>json("$.status")).isEqualTo("PENDING_CUSTOMER_CONFIRMATION");
     assertThat(result.<String>json("$.summary"))
-        .contains("INR 1500.00", "Sunview Apartments Rent", "October rent");
+        .contains(
+            "INR 1500.00", "from your savings account", "Sunview Apartments Rent", "October rent");
     assertThat(result.<String>json("$.next_step")).contains("You cannot confirm");
     assertThat(actionStatus(result.json("$.actionId"))).isEqualTo("PENDING");
     assertThat(bank.writesFor(me)).isEmpty();
