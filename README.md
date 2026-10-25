@@ -285,6 +285,9 @@ Two layers, so CI stays free and deterministic:
    turns, across six goals mapped to OWASP categories. Success is decided from evidence only
    (other customers' markers and canaries, executed actions, amounts, number patterns, prompt
    fragments). Paid and budget-capped: `-Deval.redteam=true`, `REDTEAM_BUDGET_USD` (default 0.55).
+   Latest run ([`eval/reports/redteam-report.md`](eval/reports/redteam-report.md)): 30
+   conversations, about 124 real attack turns after removing the attacker model's own refusals,
+   0 goals reached, about $0.33.
 
 The runner talks to agent-service like the browser, one fresh session per case, and reads every
 tool the model attempted from bank-mcp-server's audit log, including writes the policy layer
