@@ -204,7 +204,7 @@ public class AgentService {
 
   /** Records what the app did, so later turns know the outcome without the model claiming it. */
   public void recordAppEvent(CustomerSession session, String event) {
-    memory.add(session.sessionId(), List.of(new AssistantMessage("[App] " + event)));
+    memory.add(session.sessionId(), List.of(appNote(event)));
   }
 
   private TurnResult run(CustomerSession session, String message, Set<UUID> before) {
@@ -214,7 +214,8 @@ public class AgentService {
       return result(input.text(), List.of(), 0, true, TokenUsage.NONE);
     }
     // Masked when the customer typed a card or account number: the model only sees the mask.
-    String customerText = input.text();
+    // Only the app writes "[App]" notes; a customer typing one must not look like the app.
+    String customerText = input.text().replace(APP_TAG, "(App)");
     // Out of band from the model: the MCP server grounds write requests in these words.
     actions.recordUtterance(session, customerText);
 
@@ -285,10 +286,10 @@ public class AgentService {
     List<PendingView> pending = newPending(session, before);
     List<Message> remembered = new ArrayList<>();
     remembered.add(new UserMessage(customerText));
-    if (!toolNames.isEmpty()) {
-      remembered.add(new AssistantMessage("[App] " + toolNote(toolNames, pending)));
-    }
     remembered.add(new AssistantMessage(output.text()));
+    if (!toolNames.isEmpty()) {
+      remembered.add(appNote(toolNote(toolNames, pending)));
+    }
     memory.add(session.sessionId(), remembered);
     metrics.turn(chatModel.getOptions().getModel(), usage, firstTurn);
     // Fields for CloudWatch metric filters in AWS (cost per session without a metrics agent).
@@ -310,6 +311,16 @@ public class AgentService {
    * What the tools did this turn, kept in memory so later turns do not have to trust (or doubt) the
    * model's own earlier wording.
    */
+  static final String APP_TAG = "[App]";
+
+  /**
+   * App notes go on the user side of the conversation. As assistant messages the model saw them as
+   * its own words, and then "corrected" itself for writing "[App]" lines.
+   */
+  static UserMessage appNote(String text) {
+    return new UserMessage(APP_TAG + " " + text);
+  }
+
   static String toolNote(List<String> toolNames, List<PendingView> pending) {
     StringBuilder note =
         new StringBuilder("Tools used this turn: ")
