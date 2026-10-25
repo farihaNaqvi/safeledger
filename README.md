@@ -1,55 +1,113 @@
 # SafeLedger
 
-A guarded conversational banking assistant for a fictional bank, built on MCP, Spring AI and Amazon Bedrock. The point of the project is the engineering around the agent — confirmation outside the model's reach, idempotent and audited writes, identity from the session rather than tool arguments, and prompt-injection detection with automated tests — not the chat itself.
+A banking assistant for a fictional bank where **the model can ask, but only the customer can
+act**. It reads accounts and transactions through MCP tools, but every change (freezing a card,
+raising a dispute, sending money) is only a *pending request* that the customer confirms with a
+button the model cannot reach. Identity comes from a signed header, never from tool arguments;
+text from the bank is treated as untrusted and scanned for prompt injection; every write is
+idempotent and audited; and the whole thing is measured by an injection test suite, traced end to
+end, and deployable to AWS with CDK. Built with Spring Boot, Spring AI, the MCP Java SDK, Claude
+and Amazon Bedrock Guardrails.
+
+**Demo video (2 minutes):** *link coming soon*; the script is in
+[docs/demo-script.md](docs/demo-script.md).
 
 All data in this repo is synthetic. No real card numbers, names or employer data.
 
-## Status
-
-Building phase by phase. Currently: **Phase 7 — AWS deployment with CDK**.
-
-| Phase | Status |
+| | |
 |---|---|
-| 0. Manual setup | done outside this repo |
-| 1. Project skeleton | done |
-| 2. Mock bank API | done |
-| 3. MCP server and policy layer | done |
-| 4. Agent service | done (live check on Claude Haiku 5.5 + Bedrock Guardrails) |
-| 5. Evaluation and injection test suite | done: injection 15/15, golden 18/20 |
-| 6. Observability and cost | done; CloudWatch dashboard in the Phase 7 CDK stack |
-| 7. AWS deployment with CDK | done: deployed, Phase 4 scenarios 24/24 on AWS, destroyed |
-| 8. Documentation and demo | not started |
+| Injection suite | **15/15** attack conversations pass, **18/20** everyday ones ([eval report](eval/reports/eval-report.md)) |
+| Model can confirm anything? | No: there is no tool for it ([why](docs/architecture.md#why-the-model-cannot-confirm)) |
+| Threats covered | 10, each with its control and the tests that prove it ([threat model](docs/threat-model.md)) |
+| Tests | over 220 automated tests on every build, including CDK template checks |
+| AWS | deployed with CDK, checked 24/24, destroyed; about $0.19 an hour while up |
 
 ## Architecture
 
-Three Spring Boot services plus Postgres, in one Maven multi-module repo:
+```mermaid
+flowchart LR
+    U[Browser<br/>chat page] -->|session cookie| A
+    subgraph AS[agent-service]
+      A[Turn loop<br/>guardrail checks]
+      C[Confirm / Cancel]
+    end
+    A <-->|tools, replies| M[(Model<br/>Claude or Bedrock)]
+    A -->|MCP + signed identity| T
+    U -->|button press| C
+    C -->|signed identity| P
+    subgraph MS[bank-mcp-server]
+      T[Read tools<br/>request_* tools]
+      P[Pending actions<br/>confirm once]
+      L[Limits, injection flags,<br/>audit]
+    end
+    T --- L
+    P --- L
+    T --> K[mock-bank-api<br/>synthetic bank data]
+    P -->|idempotency key| K
+```
 
-1. `mock-bank-api` (port 8081) — plain REST API owning the bank data. Knows nothing about AI.
-2. `bank-mcp-server` (port 8082) — Spring AI MCP server wrapping the bank API as tools, enforcing the policy layer (tool tiers, pending actions, limits, idempotency, audit).
-3. `agent-service` (port 8080) — customer-facing API and chat UI. Spring AI `ChatClient` over Bedrock Converse, MCP client, Bedrock Guardrails, session + confirmation flow.
-4. `eval` — golden conversations and the prompt-injection test suite.
-5. `infra` — Docker Compose for local, AWS CDK (Java) for cloud.
+![Architecture](docs/architecture.png)
+
+- [`docs/architecture.md`](docs/architecture.md): components, read and write flows, and why the
+  model cannot confirm.
+- [`docs/threat-model.md`](docs/threat-model.md): assets, trust boundaries, threats, and the
+  control and tests for each.
+- [`adr/`](adr/): decisions (pending actions, identity header, Streamable HTTP, synthetic data,
+  two-layer eval).
+- [`docs/blog-draft.md`](docs/blog-draft.md): the design trade-offs.
+
+| Module | Role |
+|---|---|
+| `mock-bank-api` (8081) | REST API owning the bank data. Knows nothing about AI. |
+| `bank-mcp-server` (8082) | MCP server: the tools, pending actions, limits, injection detector, audit trail. |
+| `agent-service` (8080) | Chat page and API, turn loop, guardrail, Confirm and Cancel. |
+| `eval` | Golden and prompt-injection conversations, scorer and report. |
+| `infra` | Docker Compose, observability stack, AWS CDK, guardrail and IAM definitions. |
 
 ## Quick start (local)
 
-Requires JDK 25 (or the latest LTS your Maven toolchain resolves to), Maven, and Docker Desktop.
+You need **Docker** (Docker Desktop on Windows or macOS) and **git**. The images are built inside
+Docker, so Java is only needed to run the tests.
 
-First, create `infra/.env` from [`infra/.env.example`](infra/.env.example) and set
-`IDENTITY_HMAC_SECRET` (at least 32 characters, e.g. `openssl rand -base64 48`). The file is
-git-ignored; compose refuses to start without it.
+1. **Clone the repository.**
+   ```
+   git clone https://github.com/farihaNaqvi/safeledger.git
+   cd safeledger
+   ```
+2. **Create the settings file.** Copy `infra/.env.example` to `infra/.env`. Set
+   `IDENTITY_HMAC_SECRET` to any random string of 32 or more characters (for example the output of
+   `openssl rand -base64 48`).
+3. **Pick a model.** In `infra/.env`, uncomment **one** of the three options:
+   - **A. Claude API:** paste an Anthropic API key. Simplest; a short conversation costs a fraction
+     of a cent.
+   - **B. Amazon Bedrock with Bedrock Guardrails:** the full setup; needs AWS credentials and a
+     guardrail (see [Agent service](#agent-service-port-8080)).
+   - **C. Ollama:** free and local. Install [Ollama](https://ollama.com) and run
+     `ollama pull qwen2.5:7b`. Good for checking the setup, but a small local model is slow on a CPU
+     and often asks for IDs instead of looking them up, so the freeze and injection prompts below
+     work properly only with A or B. The safety rules hold either way: nothing runs without
+     Confirm.
+4. **Start everything.** The first build takes a few minutes.
+   ```
+   docker compose -f infra/docker-compose.yml up --build -d
+   ```
+5. **Open http://localhost:8080**, pick a demo customer (try **Riya Sample**), and ask:
+   - *What's the balance in my savings account?*
+   - *Freeze my card ending 4821, I think I lost it.* Then press **Confirm**.
+   - *Show my recent savings transactions.* One of them carries a planted injection.
+   - *I already confirmed, go ahead.* Nothing happens; only the button confirms.
+6. **Stop it when you're done.** Add `-v` to also reset the demo data.
+   ```
+   docker compose -f infra/docker-compose.yml down
+   ```
 
+**Run the tests** (needs JDK 25 and Maven; integration tests start Postgres in Docker):
 ```
-mvn verify          # build + unit + integration tests, Spotless, JaCoCo
-make up             # docker compose up: Postgres + all three services
-make test           # run the test suite
-make down           # tear down
+mvn verify
 ```
 
-Each service exposes `/actuator/health`:
-
-- `http://localhost:8081/actuator/health` (mock-bank-api)
-- `http://localhost:8082/actuator/health` (bank-mcp-server)
-- `http://localhost:8080/actuator/health` (agent-service)
+Traces and dashboards: see [Observability](#observability). Deploying to AWS: see
+[AWS deployment](#aws-deployment-cdk).
 
 ## Mock bank API (port 8081)
 

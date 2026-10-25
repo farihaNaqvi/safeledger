@@ -1,0 +1,19 @@
+flowchart LR
+    U[Browser<br/>chat page] -->|session cookie| A
+    subgraph AS[agent-service]
+      A[Turn loop<br/>guardrail checks]
+      C[Confirm / Cancel]
+    end
+    A <-->|tools, replies| M[(Model<br/>Claude or Bedrock)]
+    A -->|MCP + signed identity| T
+    U -->|button press| C
+    C -->|signed identity| P
+    subgraph MS[bank-mcp-server]
+      T[Read tools<br/>request_* tools]
+      P[Pending actions<br/>confirm once]
+      L[Limits, injection flags,<br/>audit]
+    end
+    T --- L
+    P --- L
+    T --> K[mock-bank-api<br/>synthetic bank data]
+    P -->|idempotency key| K
