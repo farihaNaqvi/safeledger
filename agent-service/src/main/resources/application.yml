@@ -65,6 +65,12 @@ safeledger:
       name: Kabir Example
     - id: 11111111-1111-4111-8111-000000000003
       name: Meera Testcase
+  # Canary tokens planted in each customer's seed data (cashback reference codes). A reply that
+  # shows another customer's code is withheld and raised as a security event.
+  canaries:
+    "[11111111-1111-4111-8111-000000000001]": [CB-7Q2X9K]
+    "[11111111-1111-4111-8111-000000000002]": [CB-4M8T1W]
+    "[11111111-1111-4111-8111-000000000003]": [CB-9H5L3D]
 
 logging:
   structured:

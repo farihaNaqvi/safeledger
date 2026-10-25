@@ -35,6 +35,7 @@ public class ObservabilityStack extends Stack {
 
   final Alarm errorRate;
   final Alarm injectionSpike;
+  final Alarm canaryTripped;
 
   public ObservabilityStack(
       Construct scope, String id, StackProps props, Config config, ServicesStack services) {
@@ -65,6 +66,19 @@ public class ObservabilityStack extends Stack {
             FilterPattern.all(
                 FilterPattern.stringValue("$.message", "=", "Turn finished*"),
                 FilterPattern.booleanValue("$.firstTurn", true)),
+            "1");
+    Metric canaries =
+        fromLogs(
+            "CanaryTrips",
+            services.agentLogs,
+            FilterPattern.stringValue(
+                "$.message", "=", "Security event: another customer's canary*"),
+            "1");
+    Metric ungrounded =
+        fromLogs(
+            "UngroundedRequests",
+            services.mcpLogs,
+            FilterPattern.stringValue("$.message", "=", "Security event: request not grounded*"),
             "1");
     MathExpression costPerSession =
         MathExpression.Builder.create()
@@ -109,11 +123,26 @@ public class ObservabilityStack extends Stack {
             .comparisonOperator(ComparisonOperator.GREATER_THAN_THRESHOLD)
             .treatMissingData(TreatMissingData.NOT_BREACHING)
             .build();
+    // One customer's canary in another customer's reply means data crossed customers.
+    canaryTripped =
+        Alarm.Builder.create(this, "CanaryTripped")
+            .alarmDescription("Another customer's canary appeared in a reply (reply was withheld)")
+            .metric(
+                canaries.with(
+                    software.amazon.awscdk.services.cloudwatch.MetricOptions.builder()
+                        .period(Duration.minutes(5))
+                        .build()))
+            .threshold(0)
+            .evaluationPeriods(1)
+            .comparisonOperator(ComparisonOperator.GREATER_THAN_THRESHOLD)
+            .treatMissingData(TreatMissingData.NOT_BREACHING)
+            .build();
     if (config.alarmEmail() != null) {
       Topic topic = Topic.Builder.create(this, "Alarms").build();
       topic.addSubscription(new EmailSubscription(config.alarmEmail()));
       errorRate.addAlarmAction(new SnsAction(topic));
       injectionSpike.addAlarmAction(new SnsAction(topic));
+      canaryTripped.addAlarmAction(new SnsAction(topic));
     }
 
     Dashboard dashboard =
@@ -133,6 +162,9 @@ public class ObservabilityStack extends Stack {
     dashboard.addWidgets(
         graph("Injection flags", List.of(injectionFlags), List.of()),
         graph("Guardrail interventions", List.of(guardrail), List.of()));
+    dashboard.addWidgets(
+        graph("Requests refused: not from the customer", List.of(ungrounded), List.of()),
+        graph("Canary trips (any is an incident)", List.of(canaries), List.of()));
     dashboard.addWidgets(
         graph(
             "CPU % by service",

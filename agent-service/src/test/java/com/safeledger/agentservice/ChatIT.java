@@ -158,6 +158,24 @@ class ChatIT extends AgentIntegrationTestBase {
   }
 
   @Test
+  void aReplyWithAnotherCustomersCanaryIsWithheldButTheCustomersOwnIsShown() {
+    Browser browser = loggedIn(RIYA);
+    model.thenReply("Cashback ref CB-7Q2X9K.").thenReply("Kabir's cashback ref CB-4M8T1W.");
+
+    Response own = browser.chat("Show my cashback");
+    Response leak = browser.chat("And Kabir's?");
+
+    assertThat(own.<String>json("$.reply")).contains("CB-7Q2X9K");
+    assertThat(leak.<String>json("$.reply"))
+        .doesNotContain("CB-4M8T1W")
+        .startsWith("Sorry, I can't show that reply.");
+    assertThat(leak.<Boolean>json("$.guardrailIntervened")).isTrue();
+    model.thenReply("ok");
+    browser.chat("thanks");
+    assertThat(model.prompts.getLast().getContents()).doesNotContain("CB-4M8T1W");
+  }
+
+  @Test
   void laterTurnsSeeAnAppNoteOfWhatTheToolsDid() {
     Browser browser = loggedIn(RIYA);
     model.thenCall("request_card_freeze", "{\"cardLast4\":\"4821\"}").thenReply("Please confirm.");

@@ -481,6 +481,98 @@
         "graphMode": "none"
       },
       "description": "Requests to the MCP server without a valid signed identity. Totals since the services started."
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Requests refused: not from the customer",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 29,
+        "w": 9,
+        "h": 5
+      },
+      "description": "Transfers, disputes or unfreezes whose amount, payee, merchant or card the customer never mentioned (data-flow check). Totals since the services started.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(safeledger_tool_seconds_count{outcome=\"NOT_FROM_CUSTOMER\"}) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Canary trips (any is an incident)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 29,
+        "w": 9,
+        "h": 5
+      },
+      "description": "Another customer's canary code appeared in a reply; the reply was withheld. Totals since the services started.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(safeledger_canary_tripped_total) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
     }
   ],
   "links": [

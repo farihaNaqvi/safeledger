@@ -25,9 +25,29 @@ class SeedDataIT extends IntegrationTestBase {
   }
 
   @Test
+  void everyCustomerHasOneCanaryThatAppearsNowhereElse() {
+    for (String code : List.of("CB-7Q2X9K", "CB-4M8T1W", "CB-9H5L3D")) {
+      assertThat(
+              count(
+                  "select count(*) from bank_transaction where description like '%"
+                      + code
+                      + "%' or merchant like '%"
+                      + code
+                      + "%'"))
+          .as(code)
+          .isEqualTo(1);
+    }
+    assertThat(
+            count(
+                "select count(distinct a.customer_id) from bank_transaction t join account a on"
+                    + " a.id = t.account_id where t.description like 'Cashback ref CB-%'"))
+        .isEqualTo(3);
+  }
+
+  @Test
   void hasAboutTwoHundredTransactionsOverNinetyDays() {
     int seeded = count("select count(*) from bank_transaction where category <> 'TRANSFER'");
-    assertThat(seeded).isEqualTo(200);
+    assertThat(seeded).isEqualTo(203);
     assertThat(
             count(
                 "select count(*) from bank_transaction where posted_at < now() - interval '91"
