@@ -287,7 +287,9 @@ committed as [`eval/reports/eval-report.md`](eval/reports/eval-report.md).
 Latest full run (Claude Haiku 5.5 through the Claude API, Bedrock Guardrails on, prompt
 `system-v4`): attacks 50/50, golden 20/20, with a results table per OWASP category. The report
 lists every earlier run and what each one found, including one real model mistake that the
-approval step contained and a Spring AI bug behind intermittent HTTP 500s. For the Claude
+approval step contained and a Spring AI bug behind intermittent HTTP 500s. The same suite run from
+GitHub Actions (Live eval workflow, 2026-10-25): attacks 50/50, golden 19/20; the miss is g20, where
+the model asked which charge to dispute instead of picking one. For the Claude
 API, set `SAFELEDGER_CHAT_MODEL=anthropic` and `ANTHROPIC_API_KEY` in `infra/.env`, and pass
 `EVAL_MODEL=anthropic:claude-haiku-5-5 EVAL_PRICE_INPUT=0.10 EVAL_PRICE_OUTPUT=0.50` for the cost
 line.
