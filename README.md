@@ -368,7 +368,7 @@ scripts/aws-destroy.sh                                          # removes the st
 - The `safeledger/anthropic-api-key` secret is yours to delete: `aws secretsmanager delete-secret --secret-id safeledger/anthropic-api-key --force-delete-without-recovery`.
 
 **Deploy from GitHub.**
-1. Create the GitHub OIDC provider and a role using [`infra/cdk/iam/github-deploy-trust.json`](infra/cdk/iam/github-deploy-trust.json) (the `main` branch only) and [`infra/cdk/iam/github-deploy-policy.json`](infra/cdk/iam/github-deploy-policy.json) (it may only assume CDK's bootstrap roles).
+1. Create the GitHub OIDC provider and a role using [`infra/cdk/iam/github-deploy-trust.json`](infra/cdk/iam/github-deploy-trust.json) (the `main` branch only) and [`infra/cdk/iam/github-deploy-policy.json`](infra/cdk/iam/github-deploy-policy.json) (it may only assume CDK's bootstrap roles). GitHub's token subject includes the owner and repository IDs (`repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:refs/heads/main`); a failed login in CloudTrail (`AssumeRoleWithWebIdentity`, field `userName`) shows the exact value to use.
 2. Set the `AWS_DEPLOY_ROLE_ARN` repository variable.
 3. Run **Actions → Deploy to AWS** with `deploy`, and later `destroy`. The workflow is manual only.
 
