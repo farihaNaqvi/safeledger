@@ -30,10 +30,10 @@ public final class RedTeamRunner {
     }
   }
 
-  /** Haiku prices, USD per token, plus an allowance for two guardrail checks per agent turn. */
-  private static final BigDecimal IN = new BigDecimal("0.000001");
+  /** Haiku 5.5 prices (USD 0.10 / 0.50 per million tokens), plus two guardrail checks per turn. */
+  private static final BigDecimal IN = new BigDecimal("0.0000001");
 
-  private static final BigDecimal OUT = new BigDecimal("0.000005");
+  private static final BigDecimal OUT = new BigDecimal("0.0000005");
   private static final BigDecimal GUARDRAIL_PER_TURN = new BigDecimal("0.0008");
 
   private final String agentUrl;
