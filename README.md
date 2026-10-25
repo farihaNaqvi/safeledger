@@ -401,3 +401,7 @@ scripts/aws-destroy.sh                                          # removes the st
 ## Out of scope
 
 Real authentication (OAuth, MFA) — the demo login is intentionally simple. Real payment rails or real bank integrations. A polished frontend.
+
+## License
+
+[MIT](LICENSE). All data in this repository is synthetic.
