@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -113,6 +114,33 @@ class ChatIT extends AgentIntegrationTestBase {
     assertThat(r.<String>json("$.reply")).contains("250000");
     assertThat(r.<Integer>json("$.toolCalls")).isEqualTo(1);
     assertThat(mcp.toolCalls).containsExactly("get_balance");
+  }
+
+  @Test
+  void textNextToAToolCallIsNotSentBackSoThinkingBlocksStayValid() {
+    Browser browser = loggedIn(RIYA);
+    model
+        .then(
+            p ->
+                ScriptedChatModel.narratedToolCall(
+                    "Let me check your balance.", "get_balance", "{}"))
+        .then(p -> ScriptedChatModel.reply("Tool said: " + ScriptedChatModel.lastToolResult(p)));
+
+    Response r = browser.chat("What is my balance?");
+
+    assertThat(r.<String>json("$.reply")).contains("250000");
+    List<Message> second = model.prompts.get(1).getInstructions();
+    AssistantMessage call =
+        second.stream()
+            .filter(m -> m instanceof AssistantMessage a && a.hasToolCalls())
+            .map(AssistantMessage.class::cast)
+            .findFirst()
+            .orElseThrow();
+    assertThat(call.getText()).isEmpty();
+    assertThat(call.getToolCalls())
+        .singleElement()
+        .satisfies(t -> assertThat(t.name()).isEqualTo("get_balance"));
+    assertThat(call.getMetadata()).containsEntry("signature", "sig");
   }
 
   @Test

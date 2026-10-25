@@ -255,7 +255,7 @@ public class AgentService {
       answer(response).getToolCalls().forEach(call -> toolNames.add(call.name()));
       toolCalls += answer(response).getToolCalls().size();
       ToolExecutionResult executed = toolCallingManager.executeToolCalls(prompt, response);
-      prompt = new Prompt(executed.conversationHistory(), options);
+      prompt = new Prompt(withoutNarration(executed.conversationHistory()), options);
       response = chatModel.call(prompt);
       usage = usage.plus(response);
       rounds++;
@@ -315,6 +315,26 @@ public class AgentService {
             note.append(" Request created, waiting for the customer to press Confirm: ")
                 .append(p.summary()));
     return note.toString();
+  }
+
+  /**
+   * Drops the text the model wrote next to its tool calls ("Let me check your cards") before the
+   * history goes back to the model. Spring AI's Anthropic converter puts that text in front of the
+   * thinking blocks when it rebuilds the message, while Claude wrote it after them; Claude's signed
+   * thinking blocks are bound to the content before them, so the next round was rejected (HTTP 500
+   * in the live eval). The tool calls and thinking blocks, which the next round needs, are kept.
+   */
+  static List<Message> withoutNarration(List<Message> history) {
+    return history.stream()
+        .map(
+            m ->
+                m instanceof AssistantMessage a
+                        && a.hasToolCalls()
+                        && a.getText() != null
+                        && !a.getText().isEmpty()
+                    ? (Message) a.mutate().content("").build()
+                    : m)
+        .toList();
   }
 
   /** Anthropic and Bedrock report "max_tokens", Ollama "length". */
