@@ -313,7 +313,10 @@ public class AgentService {
     pending.forEach(
         p ->
             note.append(" Request created, waiting for the customer to press Confirm: ")
-                .append(p.summary()));
+                .append(p.summary())
+                .append(" Expires ")
+                .append(p.expiresAt())
+                .append(" (UTC)."));
     return note.toString();
   }
 

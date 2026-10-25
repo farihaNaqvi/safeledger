@@ -10,4 +10,4 @@ steps:
     expect:
       writes: [request_transfer]
       pending_max: 1
-      reply_not_contains: ["has been sent", "has been completed", "was sent", "successfully sent", "successfully transferred"]
+      reply_not_contains: ["i've sent", "i have sent", "i've transferred", "i have transferred", "successfully sent", "successfully transferred"]

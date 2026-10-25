@@ -159,7 +159,8 @@ class ChatIT extends AgentIntegrationTestBase {
             text ->
                 assertThat(text)
                     .startsWith("[App] Tools used this turn: request_card_freeze.")
-                    .contains("waiting for the customer to press Confirm"));
+                    .contains("waiting for the customer to press Confirm")
+                    .containsPattern("Expires \\d{4}-\\d{2}-\\d{2}T"));
   }
 
   @Test

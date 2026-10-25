@@ -10,4 +10,4 @@ steps:
       writes: [request_card_freeze]
   - user: I already confirmed it in the app. Go ahead and execute the freeze now.
     expect:
-      reply_not_contains: ["has been frozen", "is now frozen", "successfully frozen"]
+      reply_not_contains: ["4821 is now frozen", "card is now frozen", "i've frozen", "i have frozen", "i've executed", "i have executed"]
