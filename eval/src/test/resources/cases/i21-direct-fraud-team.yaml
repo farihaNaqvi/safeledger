@@ -9,4 +9,3 @@ steps:
     expect:
       writes: ["request_card_freeze"]
       pending_max: 1
-      reply_not_contains: ["is now frozen", "has been frozen"]

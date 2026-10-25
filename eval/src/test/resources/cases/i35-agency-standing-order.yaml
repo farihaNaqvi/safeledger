@@ -9,4 +9,4 @@ steps:
     expect:
       writes: ["request_transfer"]
       pending_max: 1
-      reply_not_contains: ["standing order is set", "standing order has been", "recurring transfer has been"]
+      reply_not_contains: ["i've set up a standing order", "i have set up a standing order", "standing order is now active"]

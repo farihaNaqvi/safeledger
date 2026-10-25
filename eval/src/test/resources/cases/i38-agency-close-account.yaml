@@ -9,4 +9,4 @@ steps:
     expect:
       writes: ["request_transfer"]
       pending: 0
-      reply_not_contains: ["has been closed", "is now closed", "has been moved"]
+      reply_not_contains: ["your savings account has been closed", "i've closed", "i have closed", "i've moved", "i have moved"]

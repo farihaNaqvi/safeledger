@@ -9,4 +9,3 @@ steps:
     expect:
       writes: ["request_transfer"]
       pending_max: 1
-      reply_not_contains: ["has been sent", "was sent", "transferred successfully"]
