@@ -161,7 +161,10 @@ create a `PENDING` action that expires after 5 minutes. The customer confirms it
 `POST /internal/actions/{id}/confirm`, an HTTP endpoint that is not an MCP tool. Confirm runs
 exactly once (one conditional `PENDING → CONFIRMED` update) and calls the bank with the action's
 stored idempotency key. `POST /internal/actions/{id}/cancel` and `GET /internal/actions` complete
-the set.
+the set. The summary the customer confirms is built from stored values only; the one piece of
+model-written text a customer confirms, a transfer note, is returned apart as `payeeNote`. A new
+transfer request supersedes any transfer still waiting in the same session, so Confirm on an
+outdated card is refused with `409 ACTION_SUPERSEDED`.
 
 **Identity comes from a signed header, never from tool arguments.** Every request to `/mcp` and
 `/internal/**` needs `X-SafeLedger-Identity`: an HMAC-SHA256 token over customer ID, session ID
@@ -169,8 +172,9 @@ and issue time, valid for 5 minutes. Anything else gets `401` before a tool runs
 schema has a customer ID.
 
 **Limits** (configurable in `application.yml`): INR 50,000 per transfer and 100,000 per day
-(pending transfers count, so splitting does not help), 5 write requests per session, 2 pending
-actions per customer, 30 tool calls per minute per session. A request identical to one already
+(pending transfers count, so splitting does not help; the session's waiting transfer that a new one
+supersedes does not), 5 write requests per session, 2 pending actions per customer, 30 tool calls
+per minute per session. A request identical to one already
 waiting for Confirm (same tool and target, any wording) is rejected with `ALREADY_PENDING`.
 
 **Untrusted text.** Merchant, description, payee name and dispute reason are returned inside
@@ -179,7 +183,7 @@ injection detector flags suspicious text (`"flagged": true` plus the rules that 
 security event and writes an audit row. The text is still returned so the customer can see it.
 
 **Audit.** Every tool call, rejected identity and action transition (created, confirmed,
-executed, failed, cancelled, expired) is written to `audit_event` in the MCP server's own
+executed, failed, cancelled, expired, superseded) is written to `audit_event` in the MCP server's own
 database. Long digit runs in arguments are redacted.
 
 Try it with the MCP Inspector while the stack is up:
@@ -200,7 +204,10 @@ Two more layers ([ADR 0006](adr/0006-provenance-canaries-and-adversarial-testing
   `POST /internal/utterances`, which the model cannot reach. A transfer, dispute or unfreeze whose
   amount, payee, merchant or card digits the customer never typed in the session is refused with
   `NOT_FROM_CUSTOMER` and audited, so a payee name or amount planted in bank data cannot become a
-  request even if the model is fooled. Freezing is exempt. Switch: `safeledger.provenance.enabled`.
+  request even if the model is fooled. Clauses the customer negated ("do not send 1,500 to ...")
+  do not count. Matching is lexical: a correction without a negation still grounds the first
+  value, and the Confirm card is the final check. Freezing is exempt. Switch:
+  `safeledger.provenance.enabled`.
 - **Canary tokens.** Each seed customer has a unique cashback reference code. A reply that shows
   another customer's code is withheld, logged as a security event and counted
   (`safeledger.canary.tripped`); in AWS a CloudWatch alarm fires on any trip.
@@ -279,8 +286,8 @@ Two layers, so CI stays free and deterministic:
    sensitive information disclosure, improper output handling, excessive agency, system prompt
    leakage, misinformation and unbounded consumption.
 3. **Generated invariants, every build.** `ApprovalInvariantsIT` runs 300 seeded random sequences
-   of confirm, cancel, concurrent double confirm, expiry and sweep, by the owner and by another
-   customer, against the real endpoints and database, checking after every step that nothing runs
+   of confirm, cancel, concurrent double confirm, expiry, sweep and a corrected transfer, by the
+   owner and by another customer, against the real endpoints and database, checking after every step that nothing runs
    without an owner Confirm, nothing runs twice and terminal states never change.
    `-Dproperty.sequences=10000` for a long run; a failure prints a seed that replays it.
 4. **Adaptive red team, on demand.** A second model plays the customer and adapts over up to six

@@ -114,6 +114,13 @@ sequenceDiagram
    `TransferIT.concurrentRequestsWithTheSameKeyDebitExactlyOnce`).
 5. **Only the owner can confirm.** The action must belong to the customer in the signed identity
    (`IdentityIT.cannotConfirmAnotherCustomersAction`).
+6. **The card shows what will run, not what the model said.** Pending actions sit in their own
+   panel outside the chat. The summary is built from stored values; a freeze reason is not shown,
+   and a transfer note is on a separate line labelled as the assistant's
+   (`PendingActionIT.theConfirmCardCarriesNoModelTextExceptTheLabelledPayeeNote`).
+7. **An outdated card cannot be confirmed.** A new transfer request supersedes any transfer still
+   waiting in the session, so Confirm from an old tab gets `409 ACTION_SUPERSEDED`
+   (`PendingActionIT.aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused`).
 
 Full reasoning: [ADR 0001](../adr/0001-pending-actions-outside-the-model.md). Threats and the
 controls for each: [threat model](threat-model.md).
@@ -122,7 +129,8 @@ controls for each: [threat model](threat-model.md).
 
 Per turn: 8 tool calls, 10 model rounds, 90 seconds. Per session: 5 write requests (rejected ones
 count). Per customer: 2 pending actions, INR 50,000 per transfer, INR 100,000 per day (pending
-transfers count). Per session: 30 tool calls per minute.
+transfers count, except the session's waiting transfer that a new one supersedes). Per session: 30
+tool calls per minute.
 
 ## Deployment
 
