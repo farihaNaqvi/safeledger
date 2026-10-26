@@ -77,6 +77,9 @@ function add(cls, text) {
   return div;
 }
 
+// Open cards by action ID, so a card the server no longer holds as pending can be closed.
+const cards = new Map();
+
 function addAction(action, traceId) {
   const box = document.createElement('div');
   box.className = 'action';
@@ -104,6 +107,7 @@ function addAction(action, traceId) {
   box.scrollIntoView({ block: 'nearest' });
 
   const finish = (cls, message) => {
+    cards.delete(action.id);
     box.remove();
     $('pending').hidden = !$('pending-list').children.length;
     const done = document.createElement('div');
@@ -124,6 +128,17 @@ function addAction(action, traceId) {
     const r = await api('POST', `/api/actions/${action.id}/cancel`, null, sameTrace(traceId));
     finish('failed', r.ok ? 'Cancelled: ' + action.summary : 'Could not cancel');
   };
+  cards.set(action.id, (status) =>
+    finish('failed', (status === 'SUPERSEDED' ? 'Replaced by a newer request: ' : 'No longer waiting: ') + action.summary));
+}
+
+async function closeStaleCards() {
+  if (!cards.size) return;
+  const r = await api('GET', '/api/actions');
+  if (!r.ok) return;
+  for (const a of r.data) {
+    if (a.status !== 'PENDING' && cards.has(a.id)) cards.get(a.id)(a.status);
+  }
 }
 
 function showChat(session) {
@@ -161,6 +176,7 @@ $('composer').onsubmit = async (e) => {
   if (!r.ok) return add('app', r.data?.detail || 'Something went wrong.');
   add('bot', r.data.reply);
   for (const a of r.data.pendingActions) addAction(a, r.traceId);
+  closeStaleCards();
 };
 
 $('logout').onclick = async () => {

@@ -18,8 +18,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Lifecycle of a pending action: created by a write tool, then confirmed (and executed once),
- * cancelled, or expired. Confirm and cancel are reachable only through the internal HTTP endpoints,
- * never through an MCP tool.
+ * cancelled, expired, or superseded by a newer request. Confirm and cancel are reachable only
+ * through the internal HTTP endpoints, never through an MCP tool.
  */
 @Service
 public class PendingActionService {
@@ -189,6 +189,22 @@ public class PendingActionService {
   }
 
   public record CancelResult(boolean cancelled, PendingAction action) {}
+
+  /**
+   * Supersedes the session's other pending requests of this tool, so a Confirm from an outdated
+   * card or tab is refused. Call after {@code keep} is created; a confirm that already won is left
+   * alone.
+   */
+  public List<PendingAction> supersedeOthers(CallerIdentity caller, String toolName, UUID keep) {
+    List<PendingAction> replaced =
+        repository.supersedeOpen(
+            caller.customerId(), caller.sessionId(), toolName, keep, Instant.now());
+    replaced.forEach(
+        a ->
+            audit.action(
+                AuditLog.EventType.ACTION_SUPERSEDED, caller, toolName, a.id(), "SUPERSEDED"));
+    return replaced;
+  }
 
   public List<PendingAction> listForSession(CallerIdentity caller) {
     return repository.findBySession(caller.customerId(), caller.sessionId());

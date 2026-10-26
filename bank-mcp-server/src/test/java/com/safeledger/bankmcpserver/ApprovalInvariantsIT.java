@@ -23,10 +23,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Generated, model-checked sequences against the real approval flow: random mixes of confirm,
- * cancel, concurrent double confirm, expiry and the expiry sweep, by the owner and by another
- * customer, over the real HTTP endpoints, database and (fake) bank. After every step the invariants
- * below must hold. A failure names the seed, which replays the exact sequence: {@code
- * -Dproperty.seed=... -Dproperty.sequences=1}. Larger runs: {@code -Dproperty.sequences=N}.
+ * cancel, concurrent double confirm, expiry, the expiry sweep and a corrected transfer that
+ * supersedes the waiting ones, by the owner and by another customer, over the real HTTP endpoints,
+ * database and (fake) bank. After every step the invariants below must hold. A failure names the
+ * seed, which replays the exact sequence: {@code -Dproperty.seed=... -Dproperty.sequences=1}.
+ * Larger runs: {@code -Dproperty.sequences=N}.
  */
 class ApprovalInvariantsIT extends McpIntegrationTestBase {
 
@@ -35,7 +36,8 @@ class ApprovalInvariantsIT extends McpIntegrationTestBase {
   static final int SEQUENCES = Integer.getInteger("property.sequences", 300);
   static final long SEED = Long.getLong("property.seed", 20261025L);
 
-  private static final Set<String> TERMINAL = Set.of("EXECUTED", "CANCELLED", "EXPIRED", "FAILED");
+  private static final Set<String> TERMINAL =
+      Set.of("EXECUTED", "CANCELLED", "EXPIRED", "FAILED", "SUPERSEDED");
 
   enum Op {
     CONFIRM_OWNER,
@@ -44,7 +46,8 @@ class ApprovalInvariantsIT extends McpIntegrationTestBase {
     CANCEL_OTHER_CUSTOMER,
     DOUBLE_CONFIRM,
     EXPIRE,
-    SWEEP
+    SWEEP,
+    CORRECT
   }
 
   @Autowired PendingActionService actions;
@@ -75,16 +78,7 @@ class ApprovalInvariantsIT extends McpIntegrationTestBase {
 
     List<UUID> ids = new ArrayList<>();
     for (int i = 0, n = 1 + r.nextInt(3); i < n; i++) {
-      BigDecimal amount = new BigDecimal((1 + r.nextInt(500)) + ".00");
-      Map<String, Object> args =
-          Map.of(
-              "fromAccountId", data.savings.toString(),
-              "payeeId", data.payee.toString(),
-              "amount", amount.toPlainString());
-      PendingAction a =
-          actions.create(
-              caller, "request_transfer", args, "Transfer " + amount, amount, Instant.now());
-      ids.add(a.id());
+      ids.add(newTransfer(caller, data, r).id());
     }
 
     Map<UUID, String> terminal = new HashMap<>();
@@ -137,6 +131,19 @@ class ApprovalInvariantsIT extends McpIntegrationTestBase {
                     + " where id = ? and status = 'PENDING'",
                 id);
         case SWEEP -> actions.expireOverdue();
+        case CORRECT -> {
+          UUID fresh = newTransfer(caller, data, r).id();
+          actions.supersedeOthers(caller, "request_transfer", fresh);
+          for (UUID a : ids) {
+            boolean wasLive = "PENDING".equals(before.get(a)) && !expired(a);
+            if (wasLive) {
+              assertThat(statuses(ids).get(a))
+                  .as("a waiting transfer survived a correction: %s", a)
+                  .isEqualTo("SUPERSEDED");
+            }
+          }
+          ids.add(fresh);
+        }
       }
 
       Map<UUID, String> after = statuses(ids);
@@ -166,6 +173,17 @@ class ApprovalInvariantsIT extends McpIntegrationTestBase {
       }
     }
     return steps;
+  }
+
+  private PendingAction newTransfer(CallerIdentity caller, FakeBank.CustomerData data, Random r) {
+    BigDecimal amount = new BigDecimal((1 + r.nextInt(500)) + ".00");
+    Map<String, Object> args =
+        Map.of(
+            "fromAccountId", data.savings.toString(),
+            "payeeId", data.payee.toString(),
+            "amount", amount.toPlainString());
+    return actions.create(
+        caller, "request_transfer", args, "Transfer " + amount, amount, Instant.now());
   }
 
   private Map<UUID, String> statuses(List<UUID> ids) {

@@ -56,7 +56,11 @@ public class WriteTools {
       Instant expiresAt,
       @JsonProperty("next_step") String nextStep,
       String warning,
-      List<String> flags) {}
+      List<String> flags,
+      @JsonProperty("replaced_requests") List<String> replaced) {}
+
+  static final String REPLACED_NOTE =
+      "Cancelled because this new request replaces it; it can no longer be confirmed: ";
 
   private final ToolRunner runner;
   private final BankClient bank;
@@ -213,6 +217,8 @@ public class WriteTools {
       name = "request_transfer",
       description =
           "Request a transfer from one of the customer's accounts to one of their saved payees."
+              + " It replaces any transfer request still waiting in this conversation, so make"
+              + " transfers one at a time."
               + WRITE_NOTE,
       annotations = @McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false))
   public CallToolResult requestTransfer(
@@ -307,10 +313,17 @@ public class WriteTools {
           "This request is already waiting for the customer to press Confirm in the app. Do not"
               + " create it again; nothing has been done yet.");
     }
-    limits.checkPendingActions(caller, now);
+    limits.checkPendingActions(caller, tool, now);
     List<String> flags =
         freeText.stream().flatMap(text -> detector.scan(text).stream()).distinct().toList();
     PendingAction action = actions.create(caller, tool, stored, summary, amount, now);
+    // A new transfer is taken as a correction: an older card for a transfer must not stay live.
+    List<String> replaced =
+        "request_transfer".equals(tool)
+            ? actions.supersedeOthers(caller, tool, action.id()).stream()
+                .map(a -> REPLACED_NOTE + a.summary())
+                .toList()
+            : List.of();
     if (!flags.isEmpty()) {
       audit.injectionFlagged(caller, tool, "free text@" + action.id(), String.join(",", flags));
     }
@@ -321,7 +334,8 @@ public class WriteTools {
         action.expiresAt(),
         NEXT_STEP,
         flags.isEmpty() ? null : UntrustedText.FLAG_WARNING,
-        flags);
+        flags,
+        replaced);
   }
 
   private BankModels.Card ownCard(CallerIdentity caller, UUID cardId) {

@@ -92,18 +92,27 @@ Calling the MCP server directly with no token, an old token, or a token for some
   `InfrastructureTest.onlyAgentServiceGetsAPublicIpAndEveryServiceRollsBackOnFailure`.
 
 ### 6. Replay and double execution
-Double click on Confirm, a retry after a timeout, two tabs, a race with expiry.
+Double click on Confirm, a retry after a timeout, two tabs, a race with expiry, a stale card for a
+transfer the customer has since corrected.
 
 - **Control:** one conditional `PENDING -> CONFIRMED` update decides the single winner; the bank call
   uses the action's stored idempotency key; the bank replays a repeated key instead of acting twice
   and rejects the same key with a different body. Cancelled and expired actions cannot be confirmed.
+  A new transfer request supersedes every transfer still waiting in the same session (one
+  conditional update, after the new one is stored), so Confirm from an old tab or card is refused
+  with `ACTION_SUPERSEDED`, audited, and the app closes the replaced card. The replaced transfer is
+  not counted against the pending or daily limits for its replacement. Transfers are confirmed one
+  at a time per session; other sessions and other kinds of request are untouched.
 - **Tests:** `PendingActionIT.concurrentConfirmsExecuteExactlyOnce`,
   `PendingActionIT.confirmExecutesOnceWithTheStoredIdempotencyKey`,
   `PendingActionIT.expiredActionCannotBeConfirmed`, `PendingActionIT.cancelledActionCannotBeConfirmed`,
   `TransferIT.concurrentRequestsWithTheSameKeyDebitExactlyOnce`,
   `TransferIT.sameKeyWithDifferentBodyIsRejected`, `DisputeIT.concurrentRequestsWithTheSameKeyCreateOneDispute`,
-  `ApprovalInvariantsIT` (seeded random sequences of confirm, cancel, double confirm, expiry and
-  sweep by the owner and another customer, invariants checked after every step).
+  `PendingActionIT.aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused`,
+  `PendingActionIT.onlyTransfersAreReplacedAndAnExecutedOneIsLeftAlone`,
+  `LimitsIT.aCorrectionIsNotCountedTwiceAgainstTheLimits`,
+  `ApprovalInvariantsIT` (seeded random sequences of confirm, cancel, double confirm, expiry, sweep
+  and correction by the owner and another customer, invariants checked after every step).
 
 ### 7. Excessive agency
 The model acting without being asked, acting on its own, or doing too much.

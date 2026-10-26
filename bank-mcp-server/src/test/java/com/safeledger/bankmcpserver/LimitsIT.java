@@ -32,7 +32,8 @@ class LimitsIT extends McpIntegrationTestBase {
 
     String first = transfer(client, data, "45000.00").json("$.actionId");
     assertThat(confirm(me, session, first).status()).isEqualTo(200);
-    String second = transfer(client, data, "45000.00").json("$.actionId");
+    // A second session: in the same one, a new transfer would replace the waiting one.
+    String second = transfer(connect(me, newSession()), data, "45000.00").json("$.actionId");
     assertThat(actionStatus(second)).isEqualTo("PENDING");
 
     ToolResult third = transfer(client, data, "10000.01");
@@ -42,14 +43,39 @@ class LimitsIT extends McpIntegrationTestBase {
   }
 
   @Test
+  void aCorrectionIsNotCountedTwiceAgainstTheLimits() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    McpSyncClient client = connect(me, session);
+    String done = transfer(client, data, "45000.00").json("$.actionId");
+    confirm(me, session, done);
+    String waiting = transfer(client, data, "45000.00").json("$.actionId");
+    transfer(connect(me, newSession()), data, "1.00");
+
+    // 45,000 executed + 50,000 is within the day; the 45,000 it replaces is not added on top,
+    // and the pending count stays at two.
+    ToolResult corrected = transfer(client, data, "50000.00");
+
+    assertThat(corrected.isError()).as(corrected.text()).isFalse();
+    assertThat(actionStatus(waiting)).isEqualTo("SUPERSEDED");
+    assertThat(transfer(connect(me, newSession()), data, "4999.00").<String>json("$.error"))
+        .isEqualTo("TOO_MANY_PENDING");
+  }
+
+  @Test
   void maxPendingActionsPerCustomerAcrossSessions() {
     UUID me = newCustomer();
     FakeBank.CustomerData data = bank.customer(me);
     McpSyncClient sessionA = connect(me, newSession());
     McpSyncClient sessionB = connect(me, newSession());
+    String card = data.activeCard.toString();
 
     assertThat(transfer(sessionA, data, "10.00").isError()).isFalse();
-    assertThat(transfer(sessionA, data, "20.00").isError()).isFalse();
+    assertThat(
+            call(sessionA, "request_card_freeze", Map.of("cardId", card, "reason", "Lost"))
+                .isError())
+        .isFalse();
     ToolResult third = transfer(sessionB, data, "30.00");
 
     assertThat(third.<String>json("$.error")).isEqualTo("TOO_MANY_PENDING");

@@ -95,6 +95,21 @@ public class PendingActionRepository {
         id);
   }
 
+  /** Open requests of this tool in the session, other than {@code keep}, become SUPERSEDED. */
+  public List<PendingAction> supersedeOpen(
+      UUID customerId, String sessionId, String toolName, UUID keep, Instant now) {
+    return jdbc.query(
+        "update pending_action set status = 'SUPERSEDED'"
+            + " where customer_id = ? and session_id = ? and tool_name = ? and id <> ?"
+            + " and status = 'PENDING' and expires_at > ? returning *",
+        MAPPER,
+        customerId,
+        sessionId,
+        toolName,
+        keep,
+        Timestamp.from(now));
+  }
+
   /** Marks every overdue pending action EXPIRED and returns their IDs. */
   public List<UUID> expireOverdue(Instant now) {
     return jdbc.queryForList(
@@ -114,29 +129,37 @@ public class PendingActionRepository {
         Timestamp.from(now));
   }
 
-  public int countOpen(UUID customerId, Instant now) {
+  /** Open actions, leaving out the session's transfers, which a new transfer will supersede. */
+  public int countOpen(UUID customerId, Instant now, String supersededSession) {
     Integer n =
         jdbc.queryForObject(
             "select count(*) from pending_action"
-                + " where customer_id = ? and status = 'PENDING' and expires_at > ?",
+                + " where customer_id = ? and status = 'PENDING' and expires_at > ?"
+                + " and not (tool_name = 'request_transfer' and session_id = ?)",
             Integer.class,
             customerId,
-            Timestamp.from(now));
+            Timestamp.from(now),
+            supersededSession == null ? "" : supersededSession);
     return n == null ? 0 : n;
   }
 
-  /** Transfers that are pending, confirmed or executed since {@code since}, summed. */
-  public BigDecimal transferTotalSince(UUID customerId, Instant since, Instant now) {
+  /**
+   * Transfers that are pending, confirmed or executed since {@code since}, summed. Pending ones in
+   * {@code supersededSession} are left out: the new transfer being checked will supersede them.
+   */
+  public BigDecimal transferTotalSince(
+      UUID customerId, Instant since, Instant now, String supersededSession) {
     BigDecimal total =
         jdbc.queryForObject(
             "select coalesce(sum(amount), 0) from pending_action where customer_id = ?"
                 + " and tool_name = 'request_transfer' and created_at >= ?"
                 + " and (status in ('CONFIRMED', 'EXECUTED')"
-                + " or (status = 'PENDING' and expires_at > ?))",
+                + " or (status = 'PENDING' and expires_at > ? and session_id <> ?))",
             BigDecimal.class,
             customerId,
             Timestamp.from(since),
-            Timestamp.from(now));
+            Timestamp.from(now),
+            supersededSession);
     return total == null ? BigDecimal.ZERO : total;
   }
 
