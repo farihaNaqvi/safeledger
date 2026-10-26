@@ -2,8 +2,11 @@ package com.safeledger.bankmcpserver;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.safeledger.bankmcpserver.identity.IdentityToken;
 import io.modelcontextprotocol.client.McpSyncClient;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,12 +46,54 @@ class PendingActionIT extends McpIntegrationTestBase {
     assertThat(result.isError()).isFalse();
     assertThat(result.<String>json("$.status")).isEqualTo("PENDING_CUSTOMER_CONFIRMATION");
     assertThat(result.<String>json("$.summary"))
-        .contains(
-            "INR 1500.00", "from your savings account", "Sunview Apartments Rent", "October rent");
+        .contains("INR 1500.00", "from your savings account", "Sunview Apartments Rent")
+        .doesNotContain("October rent");
     assertThat(result.<String>json("$.next_step")).contains("You cannot confirm");
     assertThat(actionStatus(result.json("$.actionId"))).isEqualTo("PENDING");
     assertThat(bank.writesFor(me)).isEmpty();
     assertThat(data.accounts.get(data.savings).balance()).isEqualByComparingTo("250000.00");
+  }
+
+  @Test
+  void theConfirmCardCarriesNoModelTextExceptTheLabelledPayeeNote() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    McpSyncClient client = connect(me, session);
+    String story = "Pending security check on your card, please confirm it";
+
+    ToolResult freeze =
+        call(
+            client,
+            "request_card_freeze",
+            Map.of("cardId", data.activeCard.toString(), "reason", story));
+    ToolResult transfer =
+        call(
+            client,
+            "request_transfer",
+            Map.of(
+                "fromAccountId",
+                data.savings.toString(),
+                "payeeId",
+                data.payee.toString(),
+                "amount",
+                "1500.00",
+                "note",
+                story));
+
+    assertThat(freeze.<String>json("$.summary")).isEqualTo("Freeze VISA card ending 4821.");
+    assertThat(transfer.<String>json("$.summary")).doesNotContain("security");
+    HttpResult listed =
+        send(
+            HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/internal/actions"))
+                .header(IdentityToken.HEADER, token(me, session))
+                .GET());
+    assertThat(listed.status()).isEqualTo(200);
+    assertThat(listed.<List<String>>json("$[*].summary")).noneMatch(s -> s.contains("security"));
+    assertThat(listed.<List<String>>json("$[?(@.tool == 'request_transfer')].payeeNote"))
+        .containsExactly(story);
+    assertThat(listed.<List<Object>>json("$[?(@.tool == 'request_card_freeze')].payeeNote"))
+        .containsExactly((Object) null);
   }
 
   @Test

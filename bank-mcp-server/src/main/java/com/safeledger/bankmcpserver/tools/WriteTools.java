@@ -110,8 +110,8 @@ public class WriteTools {
           if ("FROZEN".equals(card.status())) {
             throw new ToolError("ALREADY_FROZEN", "This card is already frozen.");
           }
-          String summary =
-              "Freeze " + card.network() + " card ending " + card.last4() + ". Reason: " + why;
+          // The reason is the model's text; the card shows only what the bank holds.
+          String summary = "Freeze " + card.network() + " card ending " + card.last4() + ".";
           return pending(
               caller,
               "request_card_freeze",
@@ -269,7 +269,8 @@ public class WriteTools {
           if (memo != null) {
             stored.put("note", memo);
           }
-          // The source account is named so the customer can check it before pressing Confirm.
+          // The source account is named so the customer can check it before pressing Confirm. The
+          // note is the model's text, so it stays out of the summary and the app labels it apart.
           String from =
               bank.accounts(caller.customerId()).stream()
                   .filter(a -> a.id().equals(accountId))
@@ -285,8 +286,7 @@ public class WriteTools {
                   + clip(target.name(), 60)
                   + "\" ("
                   + target.maskedAccount()
-                  + ")"
-                  + (memo == null ? "." : " with note \"" + clip(memo, 60) + "\".");
+                  + ").";
           List<String> scanned =
               memo == null ? List.of(target.name()) : List.of(target.name(), memo);
           return pending(caller, "request_transfer", stored, summary, value, scanned);

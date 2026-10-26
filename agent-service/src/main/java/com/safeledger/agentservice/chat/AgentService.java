@@ -68,7 +68,8 @@ public class AgentService {
   static final String UNFINISHED_REPLY =
       "Sorry, I couldn't finish that request. Please try again with more detail.";
 
-  public record PendingView(UUID id, String summary, Instant expiresAt) {}
+  /** Built from the MCP server's stored action, never from the model's reply. */
+  public record PendingView(UUID id, String summary, String payeeNote, Instant expiresAt) {}
 
   /** Model tokens for the whole turn, summed over every model round. */
   public record TokenUsage(long inputTokens, long outputTokens) {
@@ -396,7 +397,7 @@ public class AgentService {
   private List<PendingView> newPending(CustomerSession session, Set<UUID> before) {
     return actions.list(session).stream()
         .filter(a -> "PENDING".equals(a.status()) && !before.contains(a.id()))
-        .map(a -> new PendingView(a.id(), a.summary(), a.expiresAt()))
+        .map(a -> new PendingView(a.id(), a.summary(), a.payeeNote(), a.expiresAt()))
         .toList();
   }
 

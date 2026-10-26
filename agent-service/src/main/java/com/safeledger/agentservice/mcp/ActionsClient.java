@@ -28,6 +28,7 @@ public class ActionsClient {
       UUID id,
       String tool,
       String summary,
+      String payeeNote,
       String status,
       Instant createdAt,
       Instant expiresAt,
