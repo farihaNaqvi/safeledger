@@ -87,6 +87,20 @@ class ProvenanceIT extends McpIntegrationTestBase {
   }
 
   @Test
+  void aValueTheCustomerSaidNotToUseDoesNotGroundATransfer() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    said(me, session, "Do not send 1,500 to Lakeside Gym; send 20 to Sunview Apartments Rent");
+    McpSyncClient client = connect(me, session);
+
+    // Both 1,500 and Sunview appear in the message, but not as one request.
+    assertThat(transfer(client, data.payee, data.savings, "1500.00").<String>json("$.error"))
+        .isEqualTo(ProvenancePolicy.NOT_FROM_CUSTOMER);
+    assertThat(transfer(client, data.payee, data.savings, "20.00").isError()).isFalse();
+  }
+
+  @Test
   void wordsFromAnotherSessionDoNotCount() {
     UUID me = newCustomer();
     FakeBank.CustomerData data = bank.customer(me);
