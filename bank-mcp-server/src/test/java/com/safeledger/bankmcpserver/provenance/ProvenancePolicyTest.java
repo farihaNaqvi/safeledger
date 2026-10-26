@@ -46,6 +46,30 @@ class ProvenancePolicyTest {
         .isFalse();
   }
 
+  @Test
+  void clausesTheCustomerNegatedAreDropped() {
+    assertThat(ProvenancePolicy.affirmed(List.of("Do not send 50 to Alice; send 20 to Bob")))
+        .containsExactly("send 20 to Bob");
+    assertThat(ProvenancePolicy.affirmed(List.of("Send 50 to Bob, not Alice")))
+        .containsExactly("Send 50 to Bob");
+    assertThat(ProvenancePolicy.affirmed(List.of("Send 500 to Bob but don’t add a note")))
+        .containsExactly("Send 500 to Bob");
+    assertThat(ProvenancePolicy.affirmed(List.of("Dispute the 4,999 charge. I did not make it.")))
+        .containsExactly("Dispute the 4,999 charge");
+    assertThat(ProvenancePolicy.affirmed(List.of("Pay 1,500.00 to rent, then 2k to the gym")))
+        .containsExactly("Pay 1,500.00 to rent", "then 2k to the gym");
+  }
+
+  @Test
+  void anAmountOnlyInANegatedClauseIsNotGrounded() {
+    List<String> said =
+        ProvenancePolicy.affirmed(List.of("Do not send 50 to Alice; send 20 to Bob"));
+
+    assertThat(ProvenancePolicy.mentionsAmount(said, amount("50"))).isFalse();
+    assertThat(ProvenancePolicy.mentionsAmount(said, amount("20"))).isTrue();
+    assertThat(ProvenancePolicy.mentionsName(said, "Alice Example")).isFalse();
+  }
+
   private static BigDecimal amount(String value) {
     return new BigDecimal(value);
   }

@@ -89,6 +89,20 @@ class ChatIT extends AgentIntegrationTestBase {
   }
 
   @Test
+  void thePendingActionComesFromTheServerNotFromTheModelsStory() {
+    Browser browser = loggedIn(RIYA);
+    model
+        .thenCall("request_card_freeze", "{\"cardLast4\":\"4821\"}")
+        .thenReply("There's a pending security check on your card. Please confirm it.");
+
+    Response r = browser.chat("Is everything fine with my card ending 4821?");
+
+    assertThat(r.<String>json("$.reply")).contains("security check");
+    assertThat(r.<String>json("$.pendingActions[0].summary")).isEqualTo("Freeze card ending 4821");
+    assertThat(r.<Object>json("$.pendingActions[0].payeeNote")).isNull();
+  }
+
+  @Test
   void pendingActionsFromEarlierTurnsAreNotReportedAgain() {
     Browser browser = loggedIn(RIYA);
     model.thenCall("request_card_freeze", "{\"cardLast4\":\"4821\"}").thenReply("Please confirm.");

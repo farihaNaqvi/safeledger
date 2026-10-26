@@ -1,5 +1,6 @@
 // Minimal SafeLedger chat page: demo login, chat, and Confirm / Cancel buttons.
 // Confirm and Cancel call the API directly; they never go through the model.
+// Pending actions sit in their own panel, outside the chat, and show only stored values.
 const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'SafeLedger' };
 const $ = (id) => document.getElementById(id);
 
@@ -80,7 +81,15 @@ function addAction(action, traceId) {
   const box = document.createElement('div');
   box.className = 'action';
   const text = document.createElement('div');
-  text.textContent = 'Waiting for your confirmation: ' + action.summary;
+  text.className = 'summary';
+  text.textContent = action.summary;
+  box.append(text);
+  if (action.payeeNote) {
+    const note = document.createElement('div');
+    note.className = 'note';
+    note.textContent = 'Note sent to the payee, written by the assistant: "' + action.payeeNote + '"';
+    box.append(note);
+  }
   const buttons = document.createElement('div');
   buttons.className = 'buttons';
   const confirm = document.createElement('button');
@@ -89,14 +98,19 @@ function addAction(action, traceId) {
   const cancel = document.createElement('button');
   cancel.textContent = 'Cancel';
   buttons.append(confirm, cancel);
-  box.append(text, buttons);
-  $('messages').appendChild(box);
-  box.scrollIntoView({ block: 'end' });
+  box.append(buttons);
+  $('pending-list').appendChild(box);
+  $('pending').hidden = false;
+  box.scrollIntoView({ block: 'nearest' });
 
   const finish = (cls, message) => {
-    box.className = 'action ' + cls;
-    text.textContent = message;
-    buttons.remove();
+    box.remove();
+    $('pending').hidden = !$('pending-list').children.length;
+    const done = document.createElement('div');
+    done.className = 'action ' + cls;
+    done.textContent = message;
+    $('messages').appendChild(done);
+    done.scrollIntoView({ block: 'end' });
   };
   confirm.onclick = async () => {
     confirm.disabled = cancel.disabled = true;

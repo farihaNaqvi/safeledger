@@ -23,6 +23,13 @@ button:disabled { opacity: .5; cursor: default; }
 .action .buttons { display: flex; gap: 8px; margin-top: 8px; }
 .action.done { border-color: var(--ok); background: #eaf6ec; }
 .action.failed { border-color: var(--bad); background: #fdecee; }
+#pending { margin-top: 16px; padding: 12px; border: 2px solid var(--warn); border-radius: 8px;
+  background: var(--panel); position: sticky; bottom: 8px; }
+#pending h2 { margin: 0; font-size: 16px; }
+#pending .source { margin: 2px 0 10px; color: var(--muted); font-size: 13px; }
+#pending-list { display: grid; gap: 8px; }
+#pending .summary { font-weight: 600; }
+#pending .note { margin-top: 6px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 #composer { display: flex; gap: 8px; margin-top: 16px; }
 #message { flex: 1; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
 .hint { color: var(--muted); font-size: 13px; }

@@ -21,6 +21,12 @@
 
     <section id="chat" hidden>
       <div id="messages" aria-live="polite"></div>
+      <section id="pending" aria-live="polite" aria-labelledby="pending-title" hidden>
+        <h2 id="pending-title">Waiting for you to confirm</h2>
+        <p class="source">Built from your bank's records, not from the assistant's messages.
+          Check these details, not the chat.</p>
+        <div id="pending-list"></div>
+      </section>
       <form id="composer">
         <input id="message" autocomplete="off" maxlength="2000"
                placeholder="Ask about your balance, cards or transactions">

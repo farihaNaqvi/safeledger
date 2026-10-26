@@ -71,6 +71,22 @@ class ActionIT extends AgentIntegrationTestBase {
   }
 
   @Test
+  void aPayeeNoteIsPassedOnApartFromTheSummary() {
+    Browser browser = loggedIn(RIYA);
+    String freeze = createFreeze(browser);
+    FakeMcpServer.Caller owner = mcp.actions.get(UUID.fromString(freeze)).owner();
+    mcp.createPending(
+        owner, "request_transfer", "Transfer INR 500.00 to \"Sunview\".", "Security check");
+
+    Response r = browser.get("/api/actions");
+
+    assertThat(r.<List<String>>json("$[?(@.tool == 'request_transfer')].summary"))
+        .containsExactly("Transfer INR 500.00 to \"Sunview\".");
+    assertThat(r.<List<String>>json("$[?(@.tool == 'request_transfer')].payeeNote"))
+        .containsExactly("Security check");
+  }
+
+  @Test
   void anotherCustomerCannotSeeConfirmOrCancelTheAction() {
     Browser riya = loggedIn(RIYA);
     String id = createFreeze(riya);

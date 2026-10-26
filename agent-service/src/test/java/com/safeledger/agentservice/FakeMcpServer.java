@@ -61,6 +61,7 @@ public class FakeMcpServer {
       UUID id,
       String tool,
       String summary,
+      String payeeNote,
       String status,
       Instant createdAt,
       Instant expiresAt,
@@ -70,7 +71,8 @@ public class FakeMcpServer {
 
     Action withStatus(String newStatus, Instant executed, Map<String, Object> newResult) {
       return new Action(
-          id, tool, summary, newStatus, createdAt, expiresAt, executed, newResult, owner);
+          id, tool, summary, payeeNote, newStatus, createdAt, expiresAt, executed, newResult,
+          owner);
     }
 
     Map<String, Object> view() {
@@ -78,6 +80,7 @@ public class FakeMcpServer {
       view.put("id", id);
       view.put("tool", tool);
       view.put("summary", summary);
+      view.put("payeeNote", payeeNote);
       view.put("status", status);
       view.put("createdAt", createdAt);
       view.put("expiresAt", expiresAt);
@@ -114,12 +117,17 @@ public class FakeMcpServer {
 
   /** Creates a pending action for this caller, as a request_ tool would. */
   Action createPending(Caller caller, String tool, String summary) {
+    return createPending(caller, tool, summary, null);
+  }
+
+  Action createPending(Caller caller, String tool, String summary, String payeeNote) {
     Instant now = Instant.now();
     Action action =
         new Action(
             UUID.randomUUID(),
             tool,
             summary,
+            payeeNote,
             "PENDING",
             now,
             now.plus(5, ChronoUnit.MINUTES),

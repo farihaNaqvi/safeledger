@@ -21,6 +21,10 @@ import org.springframework.stereotype.Component;
  * this session. Text the model read in transactions, payee names or notes cannot become a request
  * on its own, however convincing it is.
  *
+ * <p>The check is lexical. Clauses the customer negated ("do not send 50 to Alice") are ignored,
+ * but a value that the customer said and then corrected without a negation still counts. The
+ * Confirm card, built from the stored request, is the final check.
+ *
  * <p>Freezing a card is exempt: it only protects the customer.
  */
 @Component
@@ -35,6 +39,13 @@ public class ProvenancePolicy {
       Pattern.compile("(?<![\\d.])(\\d[\\d,]*(?:\\.\\d+)?)\\s*(k\\b)?", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+");
+
+  /** Sentence and clause breaks; the comma in 1,500 and the dot in 1500.00 are not. */
+  private static final Pattern CLAUSE_BREAK =
+      Pattern.compile("[;!?\\n]|[.,](?=\\s|$)|\\s(?:but|instead)\\s", Pattern.CASE_INSENSITIVE);
+
+  private static final Pattern NEGATION =
+      Pattern.compile("n['’]t\\b|\\b(?:not|never|dont|cannot)\\b", Pattern.CASE_INSENSITIVE);
 
   /** Words too generic to tie a request to one payee or merchant. */
   private static final Set<String> GENERIC =
@@ -70,7 +81,7 @@ public class ProvenancePolicy {
     if (!enabled) {
       return;
     }
-    List<String> said = utterances.recent(caller);
+    List<String> said = affirmed(utterances.recent(caller));
     if (!mentionsAmount(said, amount)) {
       refuse(caller, "request_transfer", "the amount");
     }
@@ -83,7 +94,7 @@ public class ProvenancePolicy {
     if (!enabled) {
       return;
     }
-    List<String> said = utterances.recent(caller);
+    List<String> said = affirmed(utterances.recent(caller));
     if (!mentionsName(said, merchant) && !mentionsAmount(said, amount)) {
       refuse(caller, "request_dispute", "the transaction (its merchant or amount)");
     }
@@ -93,10 +104,24 @@ public class ProvenancePolicy {
     if (!enabled) {
       return;
     }
-    List<String> said = utterances.recent(caller);
+    List<String> said = affirmed(utterances.recent(caller));
     if (said.stream().noneMatch(s -> Pattern.compile("\\b" + last4 + "\\b").matcher(s).find())) {
       refuse(caller, "request_card_unfreeze", "the card's last four digits");
     }
+  }
+
+  /** The clauses of what the customer typed, without the ones they negated. */
+  static List<String> affirmed(List<String> said) {
+    List<String> out = new ArrayList<>();
+    for (String text : said) {
+      for (String clause : CLAUSE_BREAK.split(text)) {
+        String c = clause.strip();
+        if (!c.isEmpty() && !NEGATION.matcher(c).find()) {
+          out.add(c);
+        }
+      }
+    }
+    return out;
   }
 
   static boolean mentionsAmount(List<String> said, BigDecimal amount) {

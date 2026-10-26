@@ -22,10 +22,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class InternalActionController {
 
+  /**
+   * {@code summary} is built by the server from stored values only. {@code payeeNote} is the one
+   * piece of model-written text a customer confirms, so it travels separately.
+   */
   public record ActionView(
       UUID id,
       String tool,
       String summary,
+      String payeeNote,
       PendingAction.Status status,
       Instant createdAt,
       Instant expiresAt,
@@ -36,6 +41,7 @@ public class InternalActionController {
           a.id(),
           a.toolName(),
           a.summary(),
+          a.argument("note"),
           a.status(),
           a.createdAt(),
           a.expiresAt(),
