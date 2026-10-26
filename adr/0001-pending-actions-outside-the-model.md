@@ -45,6 +45,9 @@ The model can request a write but can never complete one.
   pending actions per customer, rate limit) bound how many it can create.
 - The customer must take an explicit second step for every change. That is the intended UX for a
   banking assistant; the summary must be clear enough to confirm safely.
+- Update 2026-10-27, after reader review: the summary holds no model-written text (a transfer note
+  travels apart, labelled), the card sits outside the chat, and a new transfer request supersedes a
+  waiting one in the same session (`SUPERSEDED`), so an outdated card cannot be confirmed.
 - The agent service becomes the trust boundary for "the customer pressed Confirm". It must only
   call confirm from the UI endpoint, never from the model's turn (Phase 4).
 - A bank failure at execution leaves the action `FAILED` with the bank's reason. If the bank was
