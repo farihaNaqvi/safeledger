@@ -26,7 +26,8 @@ public record PendingAction(
     EXECUTED,
     FAILED,
     EXPIRED,
-    CANCELLED
+    CANCELLED,
+    SUPERSEDED
   }
 
   public String argument(String name) {

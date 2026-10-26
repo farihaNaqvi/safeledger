@@ -73,12 +73,7 @@ public class InternalActionController {
                   new Problem(
                       "ACTION_EXPIRED", "This request has expired", result.action().status()));
       case NOT_PENDING ->
-          ResponseEntity.status(HttpStatus.CONFLICT)
-              .body(
-                  new Problem(
-                      "ACTION_NOT_PENDING",
-                      "This request was already " + result.action().status().name().toLowerCase(),
-                      result.action().status()));
+          ResponseEntity.status(HttpStatus.CONFLICT).body(notPending(result.action()));
     };
   }
 
@@ -91,14 +86,20 @@ public class InternalActionController {
           .body(new Problem("NOT_FOUND", "Action not found", null));
     }
     if (!result.cancelled()) {
-      return ResponseEntity.status(HttpStatus.CONFLICT)
-          .body(
-              new Problem(
-                  "ACTION_NOT_PENDING",
-                  "This request was already " + result.action().status().name().toLowerCase(),
-                  result.action().status()));
+      return ResponseEntity.status(HttpStatus.CONFLICT).body(notPending(result.action()));
     }
     return ResponseEntity.ok(ActionView.from(result.action()));
+  }
+
+  private static Problem notPending(PendingAction a) {
+    if (a.status() == PendingAction.Status.SUPERSEDED) {
+      return new Problem(
+          "ACTION_SUPERSEDED", "This request was replaced by a newer one", a.status());
+    }
+    return new Problem(
+        "ACTION_NOT_PENDING",
+        "This request was already " + a.status().name().toLowerCase(),
+        a.status());
   }
 
   /** The caller's actions in their current session, newest first. */

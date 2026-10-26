@@ -97,6 +97,63 @@ class PendingActionIT extends McpIntegrationTestBase {
   }
 
   @Test
+  void aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    String original = transferRequest(me, session, data, "1500.00");
+    String elsewhere = transferRequest(me, newSession(), data, "700.00");
+
+    // The customer corrects the amount; the old card is still open in another tab.
+    ToolResult corrected =
+        call(
+            connect(me, session),
+            "request_transfer",
+            Map.of(
+                "fromAccountId", data.savings.toString(),
+                "payeeId", data.payee.toString(),
+                "amount", "2000.00"));
+    HttpResult stale = confirm(me, session, original);
+
+    assertThat(corrected.<List<String>>json("$.replaced_requests"))
+        .singleElement()
+        .asString()
+        .contains("INR 1500.00");
+    assertThat(stale.status()).isEqualTo(409);
+    assertThat(stale.<String>json("$.code")).isEqualTo("ACTION_SUPERSEDED");
+    assertThat(actionStatus(original)).isEqualTo("SUPERSEDED");
+    assertThat(cancel(me, session, original).<String>json("$.code")).isEqualTo("ACTION_SUPERSEDED");
+    assertThat(bank.writesFor(me)).isEmpty();
+    assertThat(audit("ACTION_SUPERSEDED", original)).isEqualTo(1);
+    // Another session's request is not this conversation's correction.
+    assertThat(actionStatus(elsewhere)).isEqualTo("PENDING");
+
+    assertThat(confirm(me, session, corrected.json("$.actionId")).<String>json("$.status"))
+        .isEqualTo("EXECUTED");
+    assertThat(bank.writesFor(me)).hasSize(1);
+  }
+
+  @Test
+  void onlyTransfersAreReplacedAndAnExecutedOneIsLeftAlone() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    String done = transferRequest(me, session, data, "100.00");
+    confirm(me, session, done);
+    String freeze =
+        call(
+                connect(me, session),
+                "request_card_freeze",
+                Map.of("cardId", data.activeCard.toString(), "reason", "Lost it"))
+            .json("$.actionId");
+
+    transferRequest(me, session, data, "200.00");
+
+    assertThat(actionStatus(done)).isEqualTo("EXECUTED");
+    assertThat(actionStatus(freeze)).isEqualTo("PENDING");
+  }
+
+  @Test
   void confirmExecutesOnceWithTheStoredIdempotencyKey() {
     UUID me = newCustomer();
     String session = newSession();
@@ -179,7 +236,8 @@ class PendingActionIT extends McpIntegrationTestBase {
     String session = newSession();
     FakeBank.CustomerData data = bank.customer(me);
     String overdue = transferRequest(me, session, data, "100.00");
-    String fresh = transferRequest(me, session, data, "200.00");
+    // Another session, or the second transfer would supersede the first.
+    String fresh = transferRequest(me, newSession(), data, "200.00");
     backdate(overdue);
 
     expirySweep();

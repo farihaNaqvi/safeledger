@@ -64,9 +64,13 @@ public class LimitService {
     }
   }
 
-  /** Pending actions are limited per customer so opening more sessions does not help. */
-  public void checkPendingActions(CallerIdentity caller, Instant now) {
-    if (actions.countOpen(caller.customerId(), now) >= limits.maxPendingActions()) {
+  /**
+   * Pending actions are limited per customer so opening more sessions does not help. A new transfer
+   * supersedes the session's waiting transfer, so that one is not counted against it.
+   */
+  public void checkPendingActions(CallerIdentity caller, String tool, Instant now) {
+    String superseded = "request_transfer".equals(tool) ? caller.sessionId() : null;
+    if (actions.countOpen(caller.customerId(), now, superseded) >= limits.maxPendingActions()) {
       throw new ToolError(
           "TOO_MANY_PENDING",
           "The customer already has "
@@ -77,7 +81,8 @@ public class LimitService {
 
   /**
    * Per-action and per-day transfer limits. Pending, confirmed and executed transfers all count
-   * toward the day, so splitting one large transfer into several small ones does not help.
+   * toward the day, so splitting one large transfer into several small ones does not help. The
+   * session's own waiting transfer is the exception: the new one replaces it.
    */
   public void checkTransfer(CallerIdentity caller, BigDecimal amount, Instant now) {
     if (amount.compareTo(limits.maxTransferPerAction()) > 0) {
@@ -89,7 +94,8 @@ public class LimitService {
     }
     Instant startOfDay =
         LocalDate.now(properties.zone()).atStartOfDay(properties.zone()).toInstant();
-    BigDecimal today = actions.transferTotalSince(caller.customerId(), startOfDay, now);
+    BigDecimal today =
+        actions.transferTotalSince(caller.customerId(), startOfDay, now, caller.sessionId());
     if (today.add(amount).compareTo(limits.maxTransferPerDay()) > 0) {
       throw new ToolError(
           "DAILY_TRANSFER_LIMIT",
