@@ -12,9 +12,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Lifecycle of a pending action: created by a write tool, then confirmed (and executed once),
@@ -44,16 +46,31 @@ public class PendingActionService {
   private final BankClient bank;
   private final AuditLog audit;
   private final SafeLedgerProperties properties;
+  private final TransactionTemplate transactions;
 
   public PendingActionService(
       PendingActionRepository repository,
       BankClient bank,
       AuditLog audit,
-      SafeLedgerProperties properties) {
+      SafeLedgerProperties properties,
+      TransactionTemplate transactions) {
     this.repository = repository;
     this.bank = bank;
     this.audit = audit;
     this.properties = properties;
+    this.transactions = transactions;
+  }
+
+  /**
+   * Runs {@code work} in one transaction holding the customer's lock. Request creation and Confirm
+   * both take it, so a Confirm cannot land between a new request's limit checks and its supersede.
+   */
+  public <T> T underCustomerLock(CallerIdentity caller, Supplier<T> work) {
+    return transactions.execute(
+        status -> {
+          repository.lockCustomer(caller.customerId());
+          return work.get();
+        });
   }
 
   /** Free-text arguments; a request that differs only in these is the same request. */
@@ -123,7 +140,10 @@ public class PendingActionService {
       return new ConfirmResult(ConfirmOutcome.INVALID_NOTE, action);
     }
 
-    if (!repository.markConfirmed(actionId, caller.customerId(), now, note)) {
+    boolean won =
+        underCustomerLock(
+            caller, () -> repository.markConfirmed(actionId, caller.customerId(), now, note));
+    if (!won) {
       PendingAction current = repository.findOwned(actionId, caller.customerId()).orElseThrow();
       if (current.status() == PendingAction.Status.PENDING && !current.expiresAt().isAfter(now)) {
         // Overdue but the sweep has not run yet: expire it (and any others) now.
