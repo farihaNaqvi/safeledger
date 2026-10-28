@@ -161,8 +161,9 @@ create a `PENDING` action that expires after 5 minutes. The customer confirms it
 `POST /internal/actions/{id}/confirm`, an HTTP endpoint that is not an MCP tool. Confirm runs
 exactly once (one conditional `PENDING → CONFIRMED` update) and calls the bank with the action's
 stored idempotency key. `POST /internal/actions/{id}/cancel` and `GET /internal/actions` complete
-the set. The summary the customer confirms is built from stored values only; the one piece of
-model-written text a customer confirms, a transfer note, is returned apart as `payeeNote`. A new
+the set. The summary the customer confirms is built from stored values only. A transfer note
+reaches the payee, so the model cannot write one: the customer types it on the card and it is sent
+with Confirm (`{"payeeNote": "..."}`, one line, up to 200 characters). A new
 transfer request supersedes any transfer still waiting in the same session, so Confirm on an
 outdated card is refused with `409 ACTION_SUPERSEDED`.
 

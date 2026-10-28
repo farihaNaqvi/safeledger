@@ -115,9 +115,11 @@ sequenceDiagram
 5. **Only the owner can confirm.** The action must belong to the customer in the signed identity
    (`IdentityIT.cannotConfirmAnotherCustomersAction`).
 6. **The card shows what will run, not what the model said.** Pending actions sit in their own
-   panel outside the chat. The summary is built from stored values; a freeze reason is not shown,
-   and a transfer note is on a separate line labelled as the assistant's
-   (`PendingActionIT.theConfirmCardCarriesNoModelTextExceptTheLabelledPayeeNote`).
+   panel outside the chat. The summary is built from stored values and a freeze reason is not
+   shown (`PendingActionIT.theConfirmCardCarriesNoModelText`). A transfer note goes to someone
+   outside the bank, so `request_transfer` has no note parameter; the customer types the note on
+   the card and it is sent with Confirm
+   (`PendingActionIT.thePayeeNoteIsWhatTheCustomerTypesAtConfirm`).
 7. **An outdated card cannot be confirmed.** A new transfer request supersedes any transfer still
    waiting in the session, so Confirm from an old tab gets `409 ACTION_SUPERSEDED`
    (`PendingActionIT.aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused`).
