@@ -75,6 +75,11 @@ public class FakeMcpServer {
           owner);
     }
 
+    Action withNote(String note) {
+      return new Action(
+          id, tool, summary, note, status, createdAt, expiresAt, executedAt, result, owner);
+    }
+
     Map<String, Object> view() {
       Map<String, Object> view = new LinkedHashMap<>();
       view.put("id", id);
@@ -117,17 +122,13 @@ public class FakeMcpServer {
 
   /** Creates a pending action for this caller, as a request_ tool would. */
   Action createPending(Caller caller, String tool, String summary) {
-    return createPending(caller, tool, summary, null);
-  }
-
-  Action createPending(Caller caller, String tool, String summary, String payeeNote) {
     Instant now = Instant.now();
     Action action =
         new Action(
             UUID.randomUUID(),
             tool,
             summary,
-            payeeNote,
+            null,
             "PENDING",
             now,
             now.plus(5, ChronoUnit.MINUTES),
@@ -159,7 +160,9 @@ public class FakeMcpServer {
 
   @PostMapping("/internal/actions/{id}/confirm")
   public synchronized ResponseEntity<?> confirm(
-      @PathVariable UUID id, @RequestAttribute(ATTRIBUTE) Caller caller) {
+      @PathVariable UUID id,
+      @RequestAttribute(ATTRIBUTE) Caller caller,
+      @RequestBody(required = false) Map<String, String> body) {
     Action action = actions.get(id);
     if (action == null || !action.owner().customerId().equals(caller.customerId())) {
       return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Action not found");
@@ -168,7 +171,10 @@ public class FakeMcpServer {
       return problem(HttpStatus.CONFLICT, "ACTION_NOT_PENDING", "Already " + action.status());
     }
     executions.incrementAndGet();
-    Action executed = action.withStatus("EXECUTED", Instant.now(), Map.of("cardStatus", "FROZEN"));
+    Action executed =
+        action
+            .withNote(body == null ? null : body.get("payeeNote"))
+            .withStatus("EXECUTED", Instant.now(), Map.of("cardStatus", "FROZEN"));
     actions.put(id, executed);
     return ResponseEntity.ok(executed.view());
   }

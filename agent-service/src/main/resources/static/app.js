@@ -87,11 +87,17 @@ function addAction(action, traceId) {
   text.className = 'summary';
   text.textContent = action.summary;
   box.append(text);
-  if (action.payeeNote) {
-    const note = document.createElement('div');
-    note.className = 'note';
-    note.textContent = 'Note sent to the payee, written by the assistant: "' + action.payeeNote + '"';
-    box.append(note);
+  // The payee sees the note, so the customer writes it here; the assistant cannot.
+  let note = null;
+  if (action.tool === 'request_transfer') {
+    const label = document.createElement('label');
+    label.className = 'note';
+    label.textContent = 'Note for the payee (optional)';
+    note = document.createElement('input');
+    note.maxLength = 200;
+    note.autocomplete = 'off';
+    label.append(note);
+    box.append(label);
   }
   const buttons = document.createElement('div');
   buttons.className = 'buttons';
@@ -118,7 +124,9 @@ function addAction(action, traceId) {
   };
   confirm.onclick = async () => {
     confirm.disabled = cancel.disabled = true;
-    const r = await api('POST', `/api/actions/${action.id}/confirm`, null, sameTrace(traceId));
+    const payeeNote = note?.value.trim() || null;
+    const r = await api('POST', `/api/actions/${action.id}/confirm`, payeeNote && { payeeNote },
+      sameTrace(traceId));
     if (r.ok && r.data.status === 'EXECUTED') finish('done', 'Done: ' + action.summary);
     else if (r.ok) finish('failed', 'The bank did not accept this: ' + (r.data.result?.detail || r.data.status));
     else finish('failed', 'Not done: ' + (r.data?.detail || 'this request can no longer be confirmed'));

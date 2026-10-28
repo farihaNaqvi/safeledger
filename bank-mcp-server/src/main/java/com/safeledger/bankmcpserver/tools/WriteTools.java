@@ -225,13 +225,11 @@ public class WriteTools {
       McpTransportContext context,
       @McpToolParam(description = "Account ID from list_accounts") String fromAccountId,
       @McpToolParam(description = "Payee ID from list_payees") String payeeId,
-      @McpToolParam(description = "Amount in INR as a decimal string, e.g. 1500.00") String amount,
-      @McpToolParam(description = "Optional short note for the payee", required = false)
-          String note) {
+      @McpToolParam(description = "Amount in INR as a decimal string, e.g. 1500.00")
+          String amount) {
     Map<String, Object> arguments = ReadTools.args("fromAccountId", fromAccountId);
     arguments.put("payeeId", payeeId);
     arguments.put("amount", amount);
-    ReadTools.putIfPresent(arguments, "note", note);
     return runner.write(
         "request_transfer",
         context,
@@ -240,7 +238,6 @@ public class WriteTools {
           UUID accountId = ToolArgs.id("fromAccountId", fromAccountId);
           UUID payee = ToolArgs.id("payeeId", payeeId);
           BigDecimal value = ToolArgs.amount("amount", amount, true);
-          String memo = ToolArgs.text("note", note, 200, false);
 
           BankModels.Balance balance;
           try {
@@ -272,11 +269,9 @@ public class WriteTools {
           stored.put("fromAccountId", accountId.toString());
           stored.put("payeeId", payee.toString());
           stored.put("amount", value.toPlainString());
-          if (memo != null) {
-            stored.put("note", memo);
-          }
-          // The source account is named so the customer can check it before pressing Confirm. The
-          // note is the model's text, so it stays out of the summary and the app labels it apart.
+          // The source account is named so the customer can check it before pressing Confirm. There
+          // is no note: the customer types it on the Confirm card, so the model cannot write to the
+          // payee.
           String from =
               bank.accounts(caller.customerId()).stream()
                   .filter(a -> a.id().equals(accountId))
@@ -293,9 +288,8 @@ public class WriteTools {
                   + "\" ("
                   + target.maskedAccount()
                   + ").";
-          List<String> scanned =
-              memo == null ? List.of(target.name()) : List.of(target.name(), memo);
-          return pending(caller, "request_transfer", stored, summary, value, scanned);
+          return pending(
+              caller, "request_transfer", stored, summary, value, List.of(target.name()));
         });
   }
 

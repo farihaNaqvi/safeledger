@@ -63,6 +63,21 @@ class ToolCatalogIT extends McpIntegrationTestBase {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void noToolTakesFreeTextForThePayee() {
+    List<McpSchema.Tool> tools = connect(newCustomer(), newSession()).listTools().tools();
+
+    // The transfer note reaches someone outside the bank, so only the customer writes it.
+    assertThat(tools)
+        .filteredOn(t -> t.name().equals("request_transfer"))
+        .singleElement()
+        .satisfies(
+            t ->
+                assertThat(((Map<String, Object>) t.inputSchema().get("properties")).keySet())
+                    .containsExactlyInAnyOrder("fromAccountId", "payeeId", "amount"));
+  }
+
+  @Test
   void writeToolsDescribeTheConfirmationStepAndReadToolsAreReadOnly() {
     List<McpSchema.Tool> tools = connect(newCustomer(), newSession()).listTools().tools();
 

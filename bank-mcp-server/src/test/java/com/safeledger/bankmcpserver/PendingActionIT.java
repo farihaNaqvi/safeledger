@@ -39,15 +39,12 @@ class PendingActionIT extends McpIntegrationTestBase {
                 "payeeId",
                 data.payee.toString(),
                 "amount",
-                "1500.00",
-                "note",
-                "October rent"));
+                "1500.00"));
 
     assertThat(result.isError()).isFalse();
     assertThat(result.<String>json("$.status")).isEqualTo("PENDING_CUSTOMER_CONFIRMATION");
     assertThat(result.<String>json("$.summary"))
-        .contains("INR 1500.00", "from your savings account", "Sunview Apartments Rent")
-        .doesNotContain("October rent");
+        .contains("INR 1500.00", "from your savings account", "Sunview Apartments Rent");
     assertThat(result.<String>json("$.next_step")).contains("You cannot confirm");
     assertThat(actionStatus(result.json("$.actionId"))).isEqualTo("PENDING");
     assertThat(bank.writesFor(me)).isEmpty();
@@ -55,7 +52,7 @@ class PendingActionIT extends McpIntegrationTestBase {
   }
 
   @Test
-  void theConfirmCardCarriesNoModelTextExceptTheLabelledPayeeNote() {
+  void theConfirmCardCarriesNoModelText() {
     UUID me = newCustomer();
     String session = newSession();
     FakeBank.CustomerData data = bank.customer(me);
@@ -77,12 +74,10 @@ class PendingActionIT extends McpIntegrationTestBase {
                 "payeeId",
                 data.payee.toString(),
                 "amount",
-                "1500.00",
-                "note",
-                story));
+                "1500.00"));
 
     assertThat(freeze.<String>json("$.summary")).isEqualTo("Freeze VISA card ending 4821.");
-    assertThat(transfer.<String>json("$.summary")).doesNotContain("security");
+    assertThat(transfer.isError()).isFalse();
     HttpResult listed =
         send(
             HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/internal/actions"))
@@ -90,10 +85,82 @@ class PendingActionIT extends McpIntegrationTestBase {
                 .GET());
     assertThat(listed.status()).isEqualTo(200);
     assertThat(listed.<List<String>>json("$[*].summary")).noneMatch(s -> s.contains("security"));
-    assertThat(listed.<List<String>>json("$[?(@.tool == 'request_transfer')].payeeNote"))
-        .containsExactly(story);
-    assertThat(listed.<List<Object>>json("$[?(@.tool == 'request_card_freeze')].payeeNote"))
-        .containsExactly((Object) null);
+    assertThat(listed.<List<Object>>json("$[*].payeeNote")).containsOnlyNulls();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void thePayeeNoteIsWhatTheCustomerTypesAtConfirm() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    String id = transferRequest(me, session, data, "1500.00");
+
+    HttpResult confirmed = confirm(me, session, id, "  October rent  ");
+
+    assertThat(confirmed.status()).isEqualTo(200);
+    assertThat(confirmed.<String>json("$.payeeNote")).isEqualTo("October rent");
+    assertThat(bank.writesFor(me))
+        .singleElement()
+        .satisfies(
+            w -> assertThat((Map<String, Object>) w.body()).containsEntry("note", "October rent"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void aModelSuppliedNoteIsNotSentToThePayee() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+
+    ToolResult created =
+        call(
+            connect(me, session),
+            "request_transfer",
+            Map.of(
+                "fromAccountId",
+                data.savings.toString(),
+                "payeeId",
+                data.payee.toString(),
+                "amount",
+                "1500.00",
+                "note",
+                "Balance 250000.00"));
+    HttpResult confirmed = confirm(me, session, created.json("$.actionId"));
+
+    assertThat(confirmed.status()).isEqualTo(200);
+    assertThat(confirmed.<Object>json("$.payeeNote")).isNull();
+    assertThat(bank.writesFor(me))
+        .singleElement()
+        .satisfies(w -> assertThat((Map<String, Object>) w.body()).doesNotContainKey("note"));
+  }
+
+  @Test
+  void aBadPayeeNoteIsRefusedAndTheRequestStaysPending() {
+    UUID me = newCustomer();
+    String session = newSession();
+    FakeBank.CustomerData data = bank.customer(me);
+    String transfer = transferRequest(me, session, data, "1500.00");
+    ToolResult freeze =
+        call(
+            connect(me, newSession()),
+            "request_card_freeze",
+            Map.of("cardId", data.activeCard.toString(), "reason", "Lost"));
+
+    HttpResult tooLong = confirm(me, session, transfer, "x".repeat(201));
+    HttpResult twoLines = confirm(me, session, transfer, "Rent\nAcct 1234");
+    HttpResult onAFreeze = confirm(me, session, freeze.json("$.actionId"), "Hello");
+
+    assertThat(List.of(tooLong, twoLines, onAFreeze))
+        .allSatisfy(
+            r -> {
+              assertThat(r.status()).isEqualTo(400);
+              assertThat(r.<String>json("$.code")).isEqualTo("INVALID_NOTE");
+            });
+    assertThat(actionStatus(transfer)).isEqualTo("PENDING");
+    assertThat(actionStatus(freeze.json("$.actionId"))).isEqualTo("PENDING");
+    assertThat(bank.writesFor(me)).isEmpty();
+    assertThat(confirm(me, session, transfer, "x".repeat(200)).status()).isEqualTo(200);
   }
 
   @Test

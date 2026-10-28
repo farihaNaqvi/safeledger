@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -23,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalActionController {
 
   /**
-   * {@code summary} is built by the server from stored values only. {@code payeeNote} is the one
-   * piece of model-written text a customer confirms, so it travels separately.
+   * {@code summary} is built by the server from stored values only. {@code payeeNote} is the note
+   * the customer typed when confirming a transfer; null until then.
    */
   public record ActionView(
       UUID id,
@@ -52,6 +53,8 @@ public class InternalActionController {
 
   public record Problem(String code, String detail, PendingAction.Status status) {}
 
+  public record ConfirmRequest(String payeeNote) {}
+
   private final PendingActionService service;
 
   public InternalActionController(PendingActionService service) {
@@ -60,8 +63,11 @@ public class InternalActionController {
 
   @PostMapping("/internal/actions/{id}/confirm")
   public ResponseEntity<?> confirm(
-      @PathVariable UUID id, @RequestAttribute(IdentityFilter.ATTRIBUTE) CallerIdentity caller) {
-    PendingActionService.ConfirmResult result = service.confirm(caller, id);
+      @PathVariable UUID id,
+      @RequestAttribute(IdentityFilter.ATTRIBUTE) CallerIdentity caller,
+      @RequestBody(required = false) ConfirmRequest body) {
+    PendingActionService.ConfirmResult result =
+        service.confirm(caller, id, body == null ? null : body.payeeNote());
     return switch (result.outcome()) {
       case EXECUTED, FAILED -> ResponseEntity.ok(ActionView.from(result.action()));
       case NOT_FOUND ->
@@ -74,6 +80,15 @@ public class InternalActionController {
                       "ACTION_EXPIRED", "This request has expired", result.action().status()));
       case NOT_PENDING ->
           ResponseEntity.status(HttpStatus.CONFLICT).body(notPending(result.action()));
+      case INVALID_NOTE ->
+          ResponseEntity.badRequest()
+              .body(
+                  new Problem(
+                      "INVALID_NOTE",
+                      "A payee note goes only on a transfer, on one line, up to "
+                          + PendingActionService.NOTE_MAX
+                          + " characters",
+                      result.action().status()));
     };
   }
 
