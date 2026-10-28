@@ -58,12 +58,17 @@ public class ActionsClient {
     return actions == null ? List.of() : Arrays.asList(actions);
   }
 
-  public Outcome confirm(CustomerSession session, UUID actionId) {
-    return post(session, "/internal/actions/{id}/confirm", actionId);
+  /** {@code payeeNote} is what the customer typed on the card, or null. */
+  public Outcome confirm(CustomerSession session, UUID actionId, String payeeNote) {
+    return post(
+        session,
+        "/internal/actions/{id}/confirm",
+        actionId,
+        payeeNote == null ? null : Map.of("payeeNote", payeeNote));
   }
 
   public Outcome cancel(CustomerSession session, UUID actionId) {
-    return post(session, "/internal/actions/{id}/cancel", actionId);
+    return post(session, "/internal/actions/{id}/cancel", actionId, null);
   }
 
   /**
@@ -81,12 +86,14 @@ public class ActionsClient {
         .toBodilessEntity();
   }
 
-  private Outcome post(CustomerSession session, String path, UUID actionId) {
+  private Outcome post(CustomerSession session, String path, UUID actionId, Object body) {
+    RestClient.RequestBodySpec request =
+        client.post().uri(path, actionId).headers(h -> headers(h, session));
+    if (body != null) {
+      request.contentType(MediaType.APPLICATION_JSON).body(body);
+    }
     ResponseEntity<Object> response =
-        client
-            .post()
-            .uri(path, actionId)
-            .headers(h -> headers(h, session))
+        request
             .retrieve()
             .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {})
             .toEntity(Object.class);

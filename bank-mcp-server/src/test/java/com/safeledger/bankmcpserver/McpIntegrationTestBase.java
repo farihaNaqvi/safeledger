@@ -1,6 +1,7 @@
 package com.safeledger.bankmcpserver;
 
 import com.jayway.jsonpath.JsonPath;
+import com.safeledger.bankmcpserver.common.Json;
 import com.safeledger.bankmcpserver.identity.CallerIdentity;
 import com.safeledger.bankmcpserver.identity.IdentityToken;
 import io.modelcontextprotocol.client.McpClient;
@@ -16,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -135,6 +137,18 @@ abstract class McpIntegrationTestBase {
 
   HttpResult confirm(UUID customerId, String sessionId, Object actionId) {
     return postInternal("/internal/actions/" + actionId + "/confirm", token(customerId, sessionId));
+  }
+
+  HttpResult confirm(UUID customerId, String sessionId, Object actionId, String payeeNote) {
+    return send(
+        HttpRequest.newBuilder(
+                URI.create(
+                    "http://localhost:" + port + "/internal/actions/" + actionId + "/confirm"))
+            .header(IdentityToken.HEADER, token(customerId, sessionId))
+            .header("Content-Type", "application/json")
+            .POST(
+                HttpRequest.BodyPublishers.ofString(
+                    Json.write(Collections.singletonMap("payeeNote", payeeNote)))));
   }
 
   HttpResult cancel(UUID customerId, String sessionId, Object actionId) {

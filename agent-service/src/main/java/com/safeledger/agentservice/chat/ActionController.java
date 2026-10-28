@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -33,10 +34,17 @@ public class ActionController {
     return actions.list(CustomerSession.require(request.getSession(false)));
   }
 
+  /** The payee note is typed by the customer on the card, so the model never writes it. */
+  public record ConfirmRequest(String payeeNote) {}
+
   @PostMapping("/api/actions/{id}/confirm")
-  public ResponseEntity<Object> confirm(@PathVariable UUID id, HttpServletRequest request) {
+  public ResponseEntity<Object> confirm(
+      @PathVariable UUID id,
+      @RequestBody(required = false) ConfirmRequest body,
+      HttpServletRequest request) {
     CustomerSession session = CustomerSession.require(request.getSession(false));
-    ActionsClient.Outcome outcome = actions.confirm(session, id);
+    ActionsClient.Outcome outcome =
+        actions.confirm(session, id, body == null ? null : body.payeeNote());
     record(session, "The customer pressed Confirm", outcome);
     return ResponseEntity.status(outcome.status()).body(outcome.body());
   }

@@ -31,8 +31,12 @@ public class PendingActionService {
     FAILED,
     NOT_FOUND,
     NOT_PENDING,
-    EXPIRED
+    EXPIRED,
+    INVALID_NOTE
   }
+
+  /** The bank's limit for a transfer note. */
+  public static final int NOTE_MAX = 200;
 
   public record ConfirmResult(ConfirmOutcome outcome, PendingAction action) {}
 
@@ -53,7 +57,7 @@ public class PendingActionService {
   }
 
   /** Free-text arguments; a request that differs only in these is the same request. */
-  private static final List<String> FREE_TEXT = List.of("reason", "note");
+  private static final List<String> FREE_TEXT = List.of("reason");
 
   /** True if the same request (same tool and target, any wording) is already waiting. */
   public boolean hasOpenDuplicate(
@@ -98,9 +102,10 @@ public class PendingActionService {
 
   /**
    * Runs the action at most once. Only the request that flips PENDING to CONFIRMED executes it; any
-   * other concurrent or repeated confirm sees it is no longer pending.
+   * other concurrent or repeated confirm sees it is no longer pending. {@code payeeNote} is typed
+   * by the customer on the Confirm card; the model has no way to set it.
    */
-  public ConfirmResult confirm(CallerIdentity caller, UUID actionId) {
+  public ConfirmResult confirm(CallerIdentity caller, UUID actionId, String payeeNote) {
     Instant now = Instant.now();
     var found = repository.findOwned(actionId, caller.customerId());
     if (found.isEmpty()) {
@@ -108,8 +113,17 @@ public class PendingActionService {
       return new ConfirmResult(ConfirmOutcome.NOT_FOUND, null);
     }
     PendingAction action = found.get();
+    String note = payeeNote == null || payeeNote.isBlank() ? null : payeeNote.strip();
+    if (note != null
+        && (!"request_transfer".equals(action.toolName())
+            || note.length() > NOTE_MAX
+            || note.chars().anyMatch(Character::isISOControl))) {
+      audit.action(
+          AuditLog.EventType.ACTION_REJECTED, caller, action.toolName(), actionId, "INVALID_NOTE");
+      return new ConfirmResult(ConfirmOutcome.INVALID_NOTE, action);
+    }
 
-    if (!repository.markConfirmed(actionId, caller.customerId(), now)) {
+    if (!repository.markConfirmed(actionId, caller.customerId(), now, note)) {
       PendingAction current = repository.findOwned(actionId, caller.customerId()).orElseThrow();
       if (current.status() == PendingAction.Status.PENDING && !current.expiresAt().isAfter(now)) {
         // Overdue but the sweep has not run yet: expire it (and any others) now.
@@ -126,6 +140,7 @@ public class PendingActionService {
     }
     audit.action(
         AuditLog.EventType.ACTION_CONFIRMED, caller, action.toolName(), actionId, "CONFIRMED");
+    action = repository.findOwned(actionId, caller.customerId()).orElseThrow();
 
     PendingAction.Status finalStatus;
     String result;

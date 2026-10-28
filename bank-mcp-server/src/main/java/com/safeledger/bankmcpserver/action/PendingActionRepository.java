@@ -64,12 +64,18 @@ public class PendingActionRepository {
         sessionId);
   }
 
-  /** PENDING to CONFIRMED, only if still pending, unexpired and owned. True if this call won. */
-  public boolean markConfirmed(UUID id, UUID customerId, Instant now) {
+  /**
+   * PENDING to CONFIRMED, only if still pending, unexpired and owned. True if this call won. Stores
+   * the customer's payee note in the same update and drops any note that was there before.
+   */
+  public boolean markConfirmed(UUID id, UUID customerId, Instant now, String payeeNote) {
     return jdbc.update(
-            "update pending_action set status = 'CONFIRMED', confirmed_at = ?"
+            "update pending_action set status = 'CONFIRMED', confirmed_at = ?,"
+                + " arguments = (arguments - 'note')"
+                + " || jsonb_strip_nulls(jsonb_build_object('note', ?::text))"
                 + " where id = ? and customer_id = ? and status = 'PENDING' and expires_at > ?",
             Timestamp.from(now),
+            payeeNote,
             id,
             customerId,
             Timestamp.from(now))

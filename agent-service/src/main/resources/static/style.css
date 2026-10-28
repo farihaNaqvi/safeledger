@@ -29,7 +29,9 @@ button:disabled { opacity: .5; cursor: default; }
 #pending .source { margin: 2px 0 10px; color: var(--muted); font-size: 13px; }
 #pending-list { display: grid; gap: 8px; }
 #pending .summary { font-weight: 600; }
-#pending .note { margin-top: 6px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+#pending .note { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
+#pending .note input { display: block; width: 100%; margin-top: 2px; padding: 6px 8px; font: inherit;
+  color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
 #composer { display: flex; gap: 8px; margin-top: 16px; }
 #message { flex: 1; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
 .hint { color: var(--muted); font-size: 13px; }

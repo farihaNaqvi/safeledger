@@ -3,6 +3,7 @@ package com.safeledger.agentservice;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -99,7 +100,8 @@ class ChatIT extends AgentIntegrationTestBase {
 
     assertThat(r.<String>json("$.reply")).contains("security check");
     assertThat(r.<String>json("$.pendingActions[0].summary")).isEqualTo("Freeze card ending 4821");
-    assertThat(r.<Object>json("$.pendingActions[0].payeeNote")).isNull();
+    assertThat(r.<String>json("$.pendingActions[0].tool")).isEqualTo("request_card_freeze");
+    assertThat(r.<Map<String, Object>>json("$.pendingActions[0]")).doesNotContainKey("payeeNote");
   }
 
   @Test

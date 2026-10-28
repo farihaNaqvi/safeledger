@@ -37,6 +37,10 @@ invariants were tested with hand-picked sequences.
   cost is an occasional refusal when the customer names something indirectly ("my landlord"). The
   tool message tells the model to ask the customer, which fixes it in one turn.
 - Matching is lexical, not semantic. It is a narrowing of what the model can propose, not a proof.
+  Since 2026-10-27, clauses the customer negated are dropped ("do not send 50 to Alice; send 20 to
+  Bob" no longer grounds 50 to Bob). A correction without a negation still grounds the first value;
+  pairing amount and payee within one message would break multi-turn requests, so the Confirm card
+  stays the boundary.
 - Canaries only detect leaks of the planted values; they are a tripwire, not a filter.
 - Invariant runs are free and part of every build (300 sequences); larger runs are a flag away.
 - Red-team runs cost money, so they are manual, never scheduled.

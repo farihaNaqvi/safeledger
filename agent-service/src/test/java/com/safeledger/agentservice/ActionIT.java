@@ -71,19 +71,22 @@ class ActionIT extends AgentIntegrationTestBase {
   }
 
   @Test
-  void aPayeeNoteIsPassedOnApartFromTheSummary() {
+  void theNoteTheCustomerTypesIsSentWithConfirm() {
     Browser browser = loggedIn(RIYA);
     String freeze = createFreeze(browser);
     FakeMcpServer.Caller owner = mcp.actions.get(UUID.fromString(freeze)).owner();
-    mcp.createPending(
-        owner, "request_transfer", "Transfer INR 500.00 to \"Sunview\".", "Security check");
+    UUID transfer =
+        mcp.createPending(owner, "request_transfer", "Transfer INR 500.00 to \"Sunview\".").id();
 
-    Response r = browser.get("/api/actions");
+    Response r =
+        browser.post("/api/actions/" + transfer + "/confirm", "{\"payeeNote\":\"October rent\"}");
+    Response plain = browser.post("/api/actions/" + freeze + "/confirm", null);
 
-    assertThat(r.<List<String>>json("$[?(@.tool == 'request_transfer')].summary"))
-        .containsExactly("Transfer INR 500.00 to \"Sunview\".");
-    assertThat(r.<List<String>>json("$[?(@.tool == 'request_transfer')].payeeNote"))
-        .containsExactly("Security check");
+    assertThat(r.status()).isEqualTo(200);
+    assertThat(r.<String>json("$.payeeNote")).isEqualTo("October rent");
+    assertThat(mcp.actions.get(transfer).payeeNote()).isEqualTo("October rent");
+    assertThat(plain.status()).isEqualTo(200);
+    assertThat(mcp.actions.get(UUID.fromString(freeze)).payeeNote()).isNull();
   }
 
   @Test
