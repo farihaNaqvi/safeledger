@@ -259,11 +259,7 @@ public class WriteTools {
                               "PAYEE_NOT_FOUND",
                               "That payee is not one of the customer's saved payees."));
           provenance.checkTransfer(caller, value, target.name());
-          limits.checkTransfer(caller, value, Instant.now());
-          if (balance.balance().compareTo(value) < 0) {
-            throw new ToolError(
-                "INSUFFICIENT_FUNDS", "The account balance is too low for this transfer.");
-          }
+          BigDecimal available = balance.balance();
 
           Map<String, Object> stored = new LinkedHashMap<>();
           stored.put("fromAccountId", accountId.toString());
@@ -288,12 +284,35 @@ public class WriteTools {
                   + "\" ("
                   + target.maskedAccount()
                   + ").";
-          return pending(
-              caller, "request_transfer", stored, summary, value, List.of(target.name()));
+          // Under the same lock as Confirm: a Confirm of the transfer this one replaces either
+          // lands before the limit check (and is counted) or after the supersede (and is refused).
+          return actions.underCustomerLock(
+              caller,
+              () -> {
+                limits.checkTransfer(caller, value, Instant.now());
+                if (available.compareTo(value) < 0) {
+                  throw new ToolError(
+                      "INSUFFICIENT_FUNDS", "The account balance is too low for this transfer.");
+                }
+                return pending(
+                    caller, "request_transfer", stored, summary, value, List.of(target.name()));
+              });
         });
   }
 
+  /** Limit checks, create and supersede run under the customer's lock, so concurrent ones queue. */
   private PendingView pending(
+      CallerIdentity caller,
+      String tool,
+      Map<String, Object> stored,
+      String summary,
+      BigDecimal amount,
+      List<String> freeText) {
+    return actions.underCustomerLock(
+        caller, () -> createPending(caller, tool, stored, summary, amount, freeText));
+  }
+
+  private PendingView createPending(
       CallerIdentity caller,
       String tool,
       Map<String, Object> stored,

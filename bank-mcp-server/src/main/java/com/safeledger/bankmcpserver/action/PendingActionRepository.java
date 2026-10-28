@@ -47,6 +47,12 @@ public class PendingActionRepository {
         Timestamp.from(a.expiresAt()));
   }
 
+  /** Waits for the customer's lock; held until the surrounding transaction ends. */
+  public void lockCustomer(UUID customerId) {
+    jdbc.queryForObject(
+        "select 1 from pg_advisory_xact_lock(hashtext(?))", Integer.class, customerId.toString());
+  }
+
   public Optional<PendingAction> findOwned(UUID id, UUID customerId) {
     return jdbc
         .query(
