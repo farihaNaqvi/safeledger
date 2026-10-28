@@ -122,7 +122,10 @@ sequenceDiagram
    (`PendingActionIT.thePayeeNoteIsWhatTheCustomerTypesAtConfirm`).
 7. **An outdated card cannot be confirmed.** A new transfer request supersedes any transfer still
    waiting in the session, so Confirm from an old tab gets `409 ACTION_SUPERSEDED`
-   (`PendingActionIT.aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused`).
+   (`PendingActionIT.aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused`). Creating a
+   request and Confirm take the same per-customer lock, so a Confirm racing a correction cannot
+   slip between its limit check and the supersede
+   (`LimitsIT.aConfirmRacingItsCorrectionNeverLeavesTwoTransfersOverTheLimit`).
 
 Full reasoning: [ADR 0001](../adr/0001-pending-actions-outside-the-model.md). Threats and the
 controls for each: [threat model](threat-model.md).

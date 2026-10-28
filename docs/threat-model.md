@@ -110,7 +110,10 @@ transfer the customer has since corrected.
   conditional update, after the new one is stored), so Confirm from an old tab or card is refused
   with `ACTION_SUPERSEDED`, audited, and the app closes the replaced card. The replaced transfer is
   not counted against the pending or daily limits for its replacement. Transfers are confirmed one
-  at a time per session; other sessions and other kinds of request are untouched.
+  at a time per session; other sessions and other kinds of request are untouched. Creating a
+  request (limit checks, insert, supersede) and Confirm both run under a per-customer Postgres
+  advisory lock, so an old card's Confirm either lands before the correction's limit check, and is
+  counted, or after the supersede, and is refused.
 - **Tests:** `PendingActionIT.concurrentConfirmsExecuteExactlyOnce`,
   `PendingActionIT.confirmExecutesOnceWithTheStoredIdempotencyKey`,
   `PendingActionIT.expiredActionCannotBeConfirmed`, `PendingActionIT.cancelledActionCannotBeConfirmed`,
@@ -119,6 +122,8 @@ transfer the customer has since corrected.
   `PendingActionIT.aCorrectedTransferReplacesTheOldOneSoAStaleConfirmIsRefused`,
   `PendingActionIT.onlyTransfersAreReplacedAndAnExecutedOneIsLeftAlone`,
   `LimitsIT.aCorrectionIsNotCountedTwiceAgainstTheLimits`,
+  `LimitsIT.aConfirmRacingItsCorrectionNeverLeavesTwoTransfersOverTheLimit` (both orders, each in
+  its own transaction; fails with the lock removed),
   `ApprovalInvariantsIT` (seeded random sequences of confirm, cancel, double confirm, expiry, sweep
   and correction by the owner and another customer, invariants checked after every step).
 
